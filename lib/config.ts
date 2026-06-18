@@ -46,28 +46,73 @@ export interface ModelSpec {
   modelId: string;
   /** Rough VRAM requirement (MB) used for capability scoring. */
   vramMb: number;
+  /**
+   * True for f16-quantized builds that need the WebGPU `shader-f16` feature.
+   * Nodes whose adapter lacks it are filtered out of this model's candidates.
+   */
+  requiresShaderF16?: boolean;
 }
 
 /**
  * The model registry. WebLLM ids must match MLC's prebuilt model list; the
  * Transformers.js entries use Hugging Face repo ids with ONNX weights.
  */
+// All `modelId` values and VRAM figures are taken verbatim from the installed
+// @mlc-ai/web-llm prebuilt model catalog. They must match exactly or the model
+// library 404s at load time. Ordered small -> large for quick testing.
 export const MODELS: ModelSpec[] = [
+  {
+    id: "smollm2-135m",
+    label: "SmolLM2 135M",
+    engine: "webllm",
+    modality: "text",
+    modelId: "SmolLM2-135M-Instruct-q0f16-MLC",
+    vramMb: 360,
+    requiresShaderF16: true,
+  },
+  {
+    id: "smollm2-360m",
+    label: "SmolLM2 360M",
+    engine: "webllm",
+    modality: "text",
+    modelId: "SmolLM2-360M-Instruct-q4f16_1-MLC",
+    vramMb: 376,
+    requiresShaderF16: true,
+  },
+  {
+    id: "smollm2-360m-f32",
+    label: "SmolLM2 360M (no-f16)",
+    engine: "webllm",
+    modality: "text",
+    modelId: "SmolLM2-360M-Instruct-q4f32_1-MLC",
+    vramMb: 580,
+  },
+  {
+    id: "tinyllama-1.1b",
+    label: "TinyLlama 1.1B Chat",
+    engine: "webllm",
+    modality: "text",
+    modelId: "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC",
+    vramMb: 697,
+    requiresShaderF16: true,
+  },
+  {
+    id: "gemma3-1b",
+    label: "Gemma 3 1B Instruct",
+    engine: "webllm",
+    modality: "text",
+    modelId: "gemma3-1b-it-q4f16_1-MLC",
+    vramMb: 711,
+    requiresShaderF16: true,
+  },
   {
     id: "llama-3.2-1b",
     label: "Llama 3.2 1B Instruct",
     engine: "webllm",
     modality: "text",
-    modelId: "Llama-3.2-1B-Instruct-q4f32_1-MLC",
-    vramMb: 1100,
-  },
-  {
-    id: "llama-3.2-3b",
-    label: "Llama 3.2 3B Instruct",
-    engine: "webllm",
-    modality: "text",
-    modelId: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-    vramMb: 2300,
+    modelId: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+    vramMb: 879,
+    requiresShaderF16: true,
   },
   {
     id: "qwen2.5-0.5b",
@@ -75,7 +120,43 @@ export const MODELS: ModelSpec[] = [
     engine: "webllm",
     modality: "text",
     modelId: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-    vramMb: 950,
+    vramMb: 945,
+    requiresShaderF16: true,
+  },
+  {
+    id: "qwen3-0.6b",
+    label: "Qwen3 0.6B",
+    engine: "webllm",
+    modality: "text",
+    modelId: "Qwen3-0.6B-q4f16_1-MLC",
+    vramMb: 1403,
+    requiresShaderF16: true,
+  },
+  {
+    id: "smollm2-1.7b",
+    label: "SmolLM2 1.7B Instruct",
+    engine: "webllm",
+    modality: "text",
+    modelId: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+    vramMb: 1774,
+    requiresShaderF16: true,
+  },
+  {
+    id: "gemma-2-2b",
+    label: "Gemma 2 2B Instruct",
+    engine: "webllm",
+    modality: "text",
+    modelId: "gemma-2-2b-it-q4f16_1-MLC",
+    vramMb: 1895,
+    requiresShaderF16: true,
+  },
+  {
+    id: "llama-3.2-3b-f32",
+    label: "Llama 3.2 3B Instruct (no-f16)",
+    engine: "webllm",
+    modality: "text",
+    modelId: "Llama-3.2-3B-Instruct-q4f32_1-MLC",
+    vramMb: 2952,
   },
   {
     id: "phi-3.5-mini",
@@ -83,7 +164,8 @@ export const MODELS: ModelSpec[] = [
     engine: "webllm",
     modality: "text",
     modelId: "Phi-3.5-mini-instruct-q4f16_1-MLC",
-    vramMb: 3700,
+    vramMb: 3672,
+    requiresShaderF16: true,
   },
   {
     id: "smolvlm-256m",
@@ -99,4 +181,4 @@ export function getModel(id: string): ModelSpec | undefined {
   return MODELS.find((m) => m.id === id);
 }
 
-export const DEFAULT_MODEL_ID = "llama-3.2-1b";
+export const DEFAULT_MODEL_ID = "smollm2-360m";

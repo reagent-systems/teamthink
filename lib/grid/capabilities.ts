@@ -12,6 +12,8 @@ export interface DeviceCapabilities {
   webgpu: boolean;
   gpuVendor?: string;
   gpuArchitecture?: string;
+  /** Whether the adapter exposes the WebGPU `shader-f16` feature. */
+  shaderF16: boolean;
   /** Coarse usable-memory estimate (MB) for model fit decisions. */
   memoryEstimateMb: number;
   /** navigator.deviceMemory in GB if exposed (coarse, capped by browsers). */
@@ -38,6 +40,7 @@ export async function detectCapabilities(): Promise<DeviceCapabilities> {
   if (!gpu) {
     return {
       webgpu: false,
+      shaderF16: false,
       memoryEstimateMb: estimateMemoryMb(undefined, deviceMemoryGb),
       deviceMemoryGb,
       role: "consume",
@@ -55,6 +58,7 @@ export async function detectCapabilities(): Promise<DeviceCapabilities> {
   if (!adapter) {
     return {
       webgpu: false,
+      shaderF16: false,
       memoryEstimateMb: estimateMemoryMb(undefined, deviceMemoryGb),
       deviceMemoryGb,
       role: "consume",
@@ -76,15 +80,18 @@ export async function detectCapabilities(): Promise<DeviceCapabilities> {
     info = {};
   }
 
+  const shaderF16 = adapter.features?.has("shader-f16") ?? false;
   const memoryEstimateMb = estimateMemoryMb(adapter, deviceMemoryGb);
-  const compatibleModelIds = MODELS.filter((m) =>
-    modelFits(m, memoryEstimateMb),
+  const compatibleModelIds = MODELS.filter(
+    (m) =>
+      modelFits(m, memoryEstimateMb) && (!m.requiresShaderF16 || shaderF16),
   ).map((m) => m.id);
 
   return {
     webgpu: true,
     gpuVendor: info.vendor || undefined,
     gpuArchitecture: info.architecture || undefined,
+    shaderF16,
     memoryEstimateMb,
     deviceMemoryGb,
     role: "compute",

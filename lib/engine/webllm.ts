@@ -7,6 +7,28 @@ import type {
 } from "@/lib/engine/types";
 
 /**
+ * Translate WebLLM/TVM device-init failures into actionable guidance. The most
+ * common one on capable hardware is a WebGPU limit mismatch (the compiled model
+ * kernel requests more storage buffers per shader stage than the adapter grants
+ * at device-creation time), which is resolved by a newer browser build rather
+ * than a code change.
+ */
+function describeLoadError(label: string, err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/maxStorageBuffersPerShaderStage|exceeds limit/i.test(raw)) {
+    return (
+      `${label} needs more WebGPU storage buffers per shader stage than this ` +
+      `device grants. Update to the latest Chrome/Edge (which raises the limit) ` +
+      `or pick a different model. (${raw})`
+    );
+  }
+  if (/requestDevice|requestAdapter|no available adapter/i.test(raw)) {
+    return `${label} could not initialize WebGPU on this device. (${raw})`;
+  }
+  return `${label} failed to load: ${raw}`;
+}
+
+/**
  * WebLLM (MLC) engine — prebuilt quantized chat LLMs on WebGPU. Closest to an
  * Ollama-style local chat runtime.
  */
@@ -22,10 +44,14 @@ export class WebLLMEngine implements InferenceEngine {
     if (this.loadedModelId === model.modelId && this.engine) return;
     const webllm = await import("@mlc-ai/web-llm");
     await this.unload();
-    this.engine = await webllm.CreateMLCEngine(model.modelId, {
-      initProgressCallback: (r: { progress: number; text: string }) =>
-        onProgress({ progress: r.progress ?? 0, text: r.text ?? "" }),
-    });
+    try {
+      this.engine = await webllm.CreateMLCEngine(model.modelId, {
+        initProgressCallback: (r: { progress: number; text: string }) =>
+          onProgress({ progress: r.progress ?? 0, text: r.text ?? "" }),
+      });
+    } catch (err) {
+      throw new Error(describeLoadError(model.label, err));
+    }
     this.loadedModelId = model.modelId;
   }
 
