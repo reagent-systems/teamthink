@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Claude-style design language: warm cream canvas, clay/coral accent,
+ * serif display headings paired with a clean sans body. Light and dark
+ * variants are both warm-toned.
+ */
+
+:root {
+  --canvas: #faf9f5;
+  --surface: #ffffff;
+  --surface-sunken: #f3efe6;
+  --border: #e7e1d5;
+  --ink: #1f1e1c;
+  --ink-muted: #6b6760;
+  --ink-subtle: #938d82;
+  --accent: #d97757;
+  --accent-strong: #c2613f;
+  --accent-soft: #f6e6df;
+  --on-accent: #fefcf9;
+  --positive: #5a7d5a;
+  --warning: #b8893a;
+  --danger: #b5503f;
+}
+
+.dark {
+  --canvas: #211f1c;
+  --surface: #2b2825;
+  --surface-sunken: #1b1916;
+  --border: #3b3733;
+  --ink: #f1ece2;
+  --ink-muted: #b3ada1;
+  --ink-subtle: #847e73;
+  --accent: #e08b6e;
+  --accent-strong: #d97757;
+  --accent-soft: #3a2c25;
+  --on-accent: #211f1c;
+  --positive: #8fb98f;
+  --warning: #d9b066;
+  --danger: #e08672;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease both;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+/* Custom thin scrollbars to match the calm aesthetic. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}

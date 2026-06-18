@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: set this to true or false
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: true
+  workerd: set this to true or false
