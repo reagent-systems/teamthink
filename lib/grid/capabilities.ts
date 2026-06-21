@@ -100,27 +100,56 @@ export async function detectCapabilities(): Promise<DeviceCapabilities> {
 }
 
 /**
- * Heuristic usable-memory estimate. WebGPU exposes no true VRAM figure, so we
- * combine adapter buffer limits with system memory hints and clamp to a sane
- * range. This is intentionally conservative; it only gates model selection.
+ * Floor for any WebGPU-capable adapter and ceiling for the estimate. The
+ * ceiling is generous so high-end discrete GPUs aren't all flattened to the
+ * same value (the old 16 GB cap made a 24 GB card look identical to a 16 GB one).
+ */
+const COMPUTE_FLOOR_MB = 2048;
+const ESTIMATE_CEILING_MB = 49152; // 48 GB
+
+/**
+ * The adapter buffer/binding limits report the largest single allocation, which
+ * is a fraction of the device's usable memory. Scaling the limit up approximates
+ * total usable capacity well enough for model-fit gating and relative ranking.
+ */
+const LIMIT_TO_USABLE_MULTIPLIER = 2;
+
+/**
+ * Heuristic usable-memory estimate. WebGPU deliberately exposes no true VRAM
+ * figure (it's a fingerprinting vector), so for a compute node the only
+ * per-GPU signal available is the adapter's buffer/binding limits — these do
+ * track hardware class (discrete ~2-4 GB, Apple/M ~1-2 GB, integrated
+ * ~256 MB-1 GB). We base the estimate on those limits.
+ *
+ * `navigator.deviceMemory` reports *system* RAM, is capped at 8 GB, and is
+ * coarsely quantized, so it is NOT a GPU figure: using it would flatten every
+ * machine with >=8 GB RAM to the same number and mask real GPU differences.
+ * It is therefore only used as a fallback for non-GPU (request-only) nodes.
  */
 function estimateMemoryMb(
   adapter: GPUAdapter | undefined,
   deviceMemoryGb: number | undefined,
 ): number {
-  let estimate = 2048; // baseline assumption
-  if (deviceMemoryGb) {
-    // Browsers cap deviceMemory at 8; assume roughly half is usable for models.
-    estimate = Math.max(estimate, deviceMemoryGb * 1024 * 0.5);
+  if (!adapter) {
+    // Request-only node: no GPU to size, so fall back to a coarse system-RAM
+    // hint. This figure only labels the node; it doesn't host models.
+    const systemMb = deviceMemoryGb ? deviceMemoryGb * 1024 * 0.5 : 1024;
+    return Math.round(Math.min(Math.max(1024, systemMb), ESTIMATE_CEILING_MB));
   }
-  if (adapter) {
-    const maxBuffer = adapter.limits?.maxBufferSize;
-    if (typeof maxBuffer === "number" && maxBuffer > 0) {
-      // maxBufferSize correlates loosely with available GPU memory.
-      estimate = Math.max(estimate, (maxBuffer / (1024 * 1024)) * 1.5);
-    }
+
+  // Take the larger of the two limits; some implementations allow buffers
+  // larger than a single storage binding. Coerce defensively (GPUSize64).
+  const maxBuffer = Number(adapter.limits?.maxBufferSize ?? 0);
+  const maxBinding = Number(adapter.limits?.maxStorageBufferBindingSize ?? 0);
+  const limitBytes = Math.max(maxBuffer, maxBinding);
+
+  let estimate = COMPUTE_FLOOR_MB;
+  if (limitBytes > 0) {
+    estimate = (limitBytes / (1024 * 1024)) * LIMIT_TO_USABLE_MULTIPLIER;
   }
-  return Math.round(Math.min(estimate, 16384));
+  return Math.round(
+    Math.min(Math.max(COMPUTE_FLOOR_MB, estimate), ESTIMATE_CEILING_MB),
+  );
 }
 
 export function modelFits(model: ModelSpec, memoryEstimateMb: number): boolean {
