@@ -1,0 +1,23 @@
+# Cloudflare Worker for TeamThink signaling, presence, and the pool registry.
+# Deploy from this directory with `wrangler deploy`. The Worker holds one
+# hibernatable WebSocket per peer (cheap at idle), relays the WebRTC handshake,
+# and emits join/leave events natively from socket open/close — real pub/sub,
+# no polling. The static page is hosted elsewhere (Vercel / Cloudflare Pages)
+# and only talks to this Worker over WebSocket.
+
+name = "teamthink-signal"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDO"
+
+[[durable_objects.bindings]]
+name = "REGISTRY"
+class_name = "RegistryDO"
+
+# SQLite-backed Durable Objects (free-tier eligible; no manual KV setup needed).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomDO", "RegistryDO"]

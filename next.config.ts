@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The deployment is the static page plus one event-driven signaling endpoint
-  // (`/api/signal`) backed by KV. That endpoint only brokers the brief WebRTC
-  // handshake — it is long-poll/push, never a busy poll — and after a peer is
-  // in the mesh, new connections are brokered peer-to-peer (no server). Weights
-  // are still fetched directly from the Hugging Face CDN.
+  // Ship as a fully static site: the page host (Vercel / Cloudflare Pages) only
+  // serves static assets. Signaling + presence live on a separate Cloudflare
+  // Worker (see `worker/`), and model weights are fetched straight from the
+  // Hugging Face CDN — so nothing of ours is in the signaling or data path.
+  output: "export",
   reactCompiler: true,
   webpack: (config) => {
     // Transformers.js / onnxruntime-web reference Node built-ins that don't

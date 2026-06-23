@@ -4,33 +4,26 @@ Spin up a session, share an invite link, and run model inference across a
 peer-to-peer mesh of browsers. Each device that joins becomes a WebGPU compute
 node; inference requests are routed to whichever peer has capacity.
 
-The deployment is the **static page plus one tiny, event-driven signaling
-endpoint** (`/api/signal`, backed by KV). That endpoint only brokers the brief
-WebRTC handshake that lets a newcomer find a first peer — it is long-poll/push,
-never a busy poll — and once a peer is in the mesh, every further connection is
-brokered peer-to-peer with no server involvement. Model weights are fetched
-directly from the Hugging Face CDN. Nothing of ours sits in the data path.
+The page itself is a **fully static site** (host it on Vercel, Cloudflare Pages,
+or any CDN). All realtime coordination lives on a small **Cloudflare Worker +
+Durable Object** (`worker/`): peers hold one WebSocket to the room's DO, which
+relays the WebRTC handshake and pushes presence. It's genuine pub/sub — no
+polling — and disconnects are detected natively from the socket closing. Model
+weights are fetched directly from the Hugging Face CDN. Nothing of ours sits in
+the data path.
 
 ## Architecture
 
-- **Signaling (KV mailbox, cost-bounded):** the rendezvous is a KV-backed
-  mailbox served by `/api/signal` — no public WebRTC relays. It is event-driven
-  (a held-open long-poll that returns the instant a message lands), and mailboxes
-  auto-expire so no durable state accumulates. Cost is bounded by the mesh
-  design, not by the number of users:
-  - Only **one peer per room** (the lowest-id "greeter") holds the room mailbox
-    open to greet newcomers. Everyone else stops talking to the server the moment
-    they have a mesh link.
-  - A newcomer connects to a single **seed** (the greeter), then the mesh fills
-    itself in: peers gossip membership (PEX) over their data channels and broker
-    each new pair's handshake through a common neighbour. A stable mesh sends
-    **zero** signaling traffic.
-- **Offer-in-link (the cheapest join):** an online peer can mint a "quick-join"
-  link that already carries a complete WebRTC offer (ICE gathered up front) in
-  the URL **fragment** (`#i=...`, which never hits the server). Opening it
-  produces an answer that's dropped in a one-time mailbox the inviter is already
-  waiting on — a single KV write, no announce, no greeter. The mesh takes over
-  after first contact.
+- **Signaling + presence (Cloudflare DO, pub/sub, no polling):** each peer opens
+  a single WebSocket to the room's Durable Object. The DO relays the SDP/ICE
+  handshake and emits `join`/`leave` events the instant a socket opens or closes
+  — so peer discovery and disconnect detection are event-driven, never polled.
+  Sockets use the Hibernation API, so idle connections cost ~nothing. A
+  deterministic id tie-break means exactly one side of each pair offers, and the
+  room converges to a full mesh.
+- **Pool registry:** the DO keeps a live directory of pools (updated on
+  membership change, with a stale-entry backstop). The landing page lists active
+  pools so a visitor can join one or start their own.
 - **Data plane (peer-to-peer):** a [Yjs](https://github.com/yjs/yjs) document is
   replicated across peers over WebRTC data channels. Presence/capability
   heartbeats are gossiped; a shared task map drives scheduling. Tokens stream
@@ -43,10 +36,10 @@ directly from the Hugging Face CDN. Nothing of ours sits in the data path.
   more). VRAM-pooling / model sharding implements the same interface.
 
 ```
-Browser A ─┐   /api/signal (KV)    ┌─ Browser B
-           ├── seed handshake only ┤    (WebGPU compute)
-Browser C ─┘  then peer-brokered   └─ Browser D
-     │                                       │
+Browser A ─┐   Cloudflare Worker + DO   ┌─ Browser B
+           ├── WebSocket: presence +    ┤    (WebGPU compute)
+Browser C ─┘   SDP/ICE handshake relay  └─ Browser D
+     │                                          │
      └────── WebRTC data channels: Yjs CRDT + token streams ──────┘
 ```
 
@@ -68,52 +61,56 @@ browser/tab/device to join the mesh.
 
 ## Configure
 
-Signaling needs a KV store (Upstash Redis / Vercel KV). The endpoint reads the
-standard credentials Vercel injects for its KV integration; if none are present
-it degrades gracefully (returns "unavailable") and the page still deploys.
+The page needs to know where the signaling Worker lives:
 
-- `KV_REST_API_URL` / `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` /
-  `UPSTASH_REDIS_REST_TOKEN`) — the KV mailbox used by `/api/signal`. On Vercel,
-  adding the KV / Upstash integration injects these automatically.
-- `NEXT_PUBLIC_SIGNAL_ENDPOINT` — override the signaling endpoint (default
-  `/api/signal`) if you host it separately.
+- `NEXT_PUBLIC_SIGNAL_WS_URL` — the deployed Worker's WebSocket origin, e.g.
+  `wss://teamthink-signal.<account>.workers.dev`. The pool-registry URL
+  (`/pools`) is derived from it. If unset, the page builds fine but the mesh
+  can't connect.
 - `NEXT_PUBLIC_TURN_URL` / `NEXT_PUBLIC_TURN_USERNAME` /
   `NEXT_PUBLIC_TURN_CREDENTIAL` — optional TURN relay for restrictive NATs.
 
-KV usage is intentionally tiny: signaling messages are a couple of small writes
-per join, and only the per-room greeter holds a long-poll open. Inference data
-never touches KV or the server.
-
 ## Deploy
 
-1. Import the repo into Vercel (framework auto-detected as Next.js) and add a KV
-   / Upstash integration so the signaling credentials above are present.
-2. Deploy. `pnpm build` runs `next build --webpack` (pinned for the inference
-   worker + ML package bundling). The output is the static page plus the single
-   `/api/signal` function — no other serverless functions, no proxied bandwidth.
+**1. Signaling Worker (Cloudflare):**
+
+```bash
+cd worker
+npm install
+npx wrangler deploy        # first run also creates the Durable Objects
+```
+
+This needs a Cloudflare account; SQLite-backed Durable Objects are free-tier
+eligible, so no KV namespace setup is required. Note the deployed URL.
+
+**2. Static page (Vercel / Cloudflare Pages / any CDN):**
+
+Set `NEXT_PUBLIC_SIGNAL_WS_URL` to the Worker's `wss://…` URL, then deploy.
+`pnpm build` emits a static site to `out/` (`output: "export"`) — no serverless
+functions, no proxied bandwidth.
 
 ## Project layout
 
 ```
 app/
-  page.tsx              landing: create / join a session
-  s/page.tsx            session route (room id from ?r=, invite from #i=)
-  api/signal/route.ts   event-driven KV signaling mailbox (the only function)
+  page.tsx              landing: create / join / list live pools
+  s/page.tsx            session route (room id from ?r=)
 components/
   ui/                   Claude-style primitives (Button, Card, Badge, Stat)
-  grid/                 session UI (peers, node panel, inference console)
+  grid/                 session UI (peers, node panel, console, pool list)
 lib/
-  config.ts             ICE servers, signaling tuning, model registry
-  server/kv.ts          KV (Upstash Redis) handle for the mailbox
-  mesh/peer.ts          WebRTC full-mesh: KV seed + peer-brokered growth
-  mesh/kv-signaling.ts  HTTP long-poll signaling transport
-  mesh/invite.ts        offer-in-link encode/decode
+  config.ts             ICE servers, signaling Worker URL, model registry
+  mesh/peer.ts          WebRTC full-mesh over WebSocket signaling
+  mesh/ws-signaling.ts  WebSocket client to the signaling Worker
   mesh/yjs-provider.ts  minimal Yjs sync over data channels
   grid/capabilities.ts  WebGPU/VRAM detection
   grid/scheduler.ts     decentralized task claiming + streaming
   engine/               InferenceEngine interface + WebLLM/Transformers engines
 workers/
   inference.worker.ts   runs the active engine off the main thread
+worker/
+  src/index.ts          Cloudflare Worker: RoomDO (signaling+presence), RegistryDO
+  wrangler.toml         Worker + Durable Object config
 ```
 
 ## Notes & limits

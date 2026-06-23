@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { PoolList } from "@/components/grid/PoolList";
 import { generateRoomId } from "@/lib/id";
 
 export default function Home() {
@@ -83,6 +84,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <PoolList />
 
         <section className="mt-16 animate-fade-in">
           <h3 className="font-display text-lg text-ink">How it works</h3>
