@@ -15,7 +15,7 @@ importers:
         specifier: ^0.2.84
         version: 0.2.84
       '@upstash/redis':
-        specifier: ^1.38.0
+        specifier: ^1.34.3
         version: 1.38.0
       '@vercel/analytics':
         specifier: ^2.0.1

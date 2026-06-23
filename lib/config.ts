@@ -19,26 +19,33 @@ export const ICE_SERVERS: RTCIceServer[] = [
     : []),
 ];
 
-/** Signaling mailbox and room registry time-to-live (seconds). */
-export const ROOM_TTL_SECONDS = 60 * 60 * 6; // 6 hours
-export const SIGNAL_TTL_SECONDS = 60 * 2; // signaling messages are short-lived
-
 /** Presence heartbeat cadence and the staleness window for re-claiming work. */
 export const HEARTBEAT_INTERVAL_MS = 4000;
 export const PEER_STALE_MS = 15000;
 export const TASK_STALE_MS = 30000;
 
 /**
- * Signaling poll cadence. The loop polls fast while connections are being
- * established (or peers/messages are changing) and backs off toward the max
- * once the mesh is stable — at steady state all traffic is peer-to-peer, so the
- * server is only needed to notice newcomers. Kept under the presence window
- * (see PEER_PRESENCE_MS in the signaling store) so peers don't expire.
+ * Signaling transport tuning. The rendezvous is a KV-backed mailbox served by
+ * `/api/signal` on our own deployment (no public WebRTC relays). It is
+ * event-driven: a client holds one request open and the server returns as soon
+ * as a message is waiting (or after `SIGNAL_POLL_HOLD_MS`), so there is no busy
+ * polling. Mailboxes auto-expire so KV never accumulates state.
+ *
+ * Cost is bounded by the mesh design, not by the number of users: only one peer
+ * per room (the lowest-id "greeter") holds the room mailbox open to greet
+ * newcomers, and every other peer stops talking to the server entirely once it
+ * has a mesh link — further connections are brokered peer-to-peer.
  */
-export const SIGNAL_POLL_MIN_MS = 1500;
-export const SIGNAL_POLL_MAX_MS = 10000;
-/** Multiplicative backoff applied each idle poll. */
-export const SIGNAL_POLL_BACKOFF = 1.6;
+export const SIGNAL_TTL_SECONDS = 120;
+/** Max time the server holds a long-poll open before returning empty (ms). */
+export const SIGNAL_POLL_HOLD_MS = 10000;
+/** How often the server checks the mailbox while holding a long-poll (ms). */
+export const SIGNAL_POLL_STEP_MS = 1000;
+/** Client backoff after a failed/empty signaling request (ms). */
+export const SIGNAL_RETRY_MS = 1500;
+/** Base path of the signaling endpoint (override for a separate host). */
+export const SIGNAL_ENDPOINT =
+  process.env.NEXT_PUBLIC_SIGNAL_ENDPOINT ?? "/api/signal";
 
 export type EngineKind = "webllm" | "transformers";
 

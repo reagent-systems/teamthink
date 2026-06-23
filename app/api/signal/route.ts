@@ -1,88 +1,104 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
-  getSignalingStore,
-  type SignalMessage,
-} from "@/lib/server/signaling-store";
+  SIGNAL_POLL_HOLD_MS,
+  SIGNAL_POLL_STEP_MS,
+  SIGNAL_TTL_SECONDS,
+} from "@/lib/config";
+import { getKv } from "@/lib/server/kv";
+
+/**
+ * Event-driven signaling mailbox — the *only* server endpoint in the app.
+ *
+ * It brokers nothing but the brief WebRTC handshake: peers drop tiny SDP
+ * messages into per-recipient "boxes" (`POST`) and drain their own box with a
+ * held-open long-poll (`GET`) that returns the instant a message arrives, or
+ * empty after `SIGNAL_POLL_HOLD_MS`. There is no busy polling, and boxes
+ * auto-expire, so KV holds no durable state. Once peers are in the mesh they
+ * stop calling this endpoint entirely — further connections are brokered
+ * peer-to-peer (see `lib/mesh/peer.ts`).
+ *
+ * A "box" is either a peer id (its private inbox), an invite key (for the
+ * offer-in-link fast path), or the literal `room` mailbox that the elected
+ * greeter watches for newcomers.
+ */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Body =
-  | { action: "join"; roomId: string; peerId: string }
-  | { action: "leave"; roomId: string; peerId: string }
-  | {
-      action: "poll";
-      roomId: string;
-      peerId: string;
-    }
-  | {
-      action: "send";
-      roomId: string;
-      message: SignalMessage;
-    }
-  | { action: "snapshot:save"; roomId: string; snapshot: string }
-  | { action: "snapshot:load"; roomId: string };
+const ROOM_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+const BOX_RE = /^[a-zA-Z0-9_-]{1,128}$/;
+const MAX_DRAIN = 64;
 
-/**
- * Signaling mailbox. Peers register presence, discover other peers, exchange
- * SDP/ICE through per-peer inboxes, and optionally persist a CRDT snapshot for
- * late joiners. Designed for short-polling so it works on serverless (no
- * long-lived sockets).
- */
-export async function POST(req: NextRequest) {
-  let body: Body;
+function key(room: string, box: string): string {
+  return `tt:sig:${room}:${box}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
+}
+
+export async function POST(req: NextRequest): Promise<Response> {
+  const kv = getKv();
+  if (!kv) return json({ error: "signaling-unconfigured" }, 503);
+
+  let body: { room?: string; box?: string; msg?: unknown };
   try {
-    body = (await req.json()) as Body;
+    body = (await req.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+    return json({ error: "bad-json" }, 400);
+  }
+  const { room, box, msg } = body;
+  if (!room || !box || msg == null || !ROOM_RE.test(room) || !BOX_RE.test(box)) {
+    return json({ error: "bad-request" }, 400);
   }
 
-  const store = getSignalingStore();
+  const k = key(room, box);
+  // Store the message as a JSON string so KV round-trips it verbatim.
+  await kv.rpush(k, JSON.stringify(msg));
+  await kv.expire(k, SIGNAL_TTL_SECONDS);
+  return json({ ok: true });
+}
 
-  switch (body.action) {
-    case "join": {
-      await store.registerPeer(body.roomId, body.peerId);
-      const peers = (await store.listPeers(body.roomId)).filter(
-        (p) => p !== body.peerId,
-      );
-      return NextResponse.json({ peers });
+export async function GET(req: NextRequest): Promise<Response> {
+  const kv = getKv();
+  if (!kv) return json({ msgs: [] });
+
+  const { searchParams } = new URL(req.url);
+  const room = searchParams.get("room") ?? "";
+  const box = searchParams.get("box") ?? "";
+  if (!ROOM_RE.test(room) || !BOX_RE.test(box)) {
+    return json({ error: "bad-request" }, 400);
+  }
+
+  const k = key(room, box);
+  const deadline = Date.now() + SIGNAL_POLL_HOLD_MS;
+  // Hold the request open, checking the mailbox periodically, until something
+  // is waiting or we hit the budget. The client immediately re-requests, so
+  // this behaves like a push without a persistent socket.
+  for (;;) {
+    const raw = (await kv.lpop(k, MAX_DRAIN)) as unknown;
+    const items = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    if (items.length > 0) {
+      return json({ msgs: items.map(parseItem).filter((m) => m != null) });
     }
+    if (Date.now() >= deadline || req.signal.aborted) break;
+    await sleep(SIGNAL_POLL_STEP_MS);
+  }
+  return json({ msgs: [] });
+}
 
-    case "leave": {
-      await store.removePeer(body.roomId, body.peerId);
-      return NextResponse.json({ ok: true });
-    }
-
-    case "poll": {
-      // Refresh presence, return inbox messages and the current peer list so
-      // peers can detect newcomers.
-      await store.registerPeer(body.roomId, body.peerId);
-      const [messages, peers] = await Promise.all([
-        store.drain(body.roomId, body.peerId),
-        store.listPeers(body.roomId),
-      ]);
-      return NextResponse.json({
-        messages,
-        peers: peers.filter((p) => p !== body.peerId),
-      });
-    }
-
-    case "send": {
-      await store.push(body.roomId, body.message);
-      return NextResponse.json({ ok: true });
-    }
-
-    case "snapshot:save": {
-      await store.saveSnapshot(body.roomId, body.snapshot);
-      return NextResponse.json({ ok: true });
-    }
-
-    case "snapshot:load": {
-      const snapshot = await store.loadSnapshot(body.roomId);
-      return NextResponse.json({ snapshot });
-    }
-
-    default:
-      return NextResponse.json({ error: "unknown action" }, { status: 400 });
+function parseItem(item: unknown): unknown {
+  if (typeof item !== "string") return item; // KV may auto-deserialize
+  try {
+    return JSON.parse(item);
+  } catch {
+    return null;
   }
 }

@@ -146,14 +146,11 @@ export class GridNode {
     this.pipelines.observeDeep(() => this.onPipelinesChanged());
   }
 
-  async start(): Promise<void> {
+  async start(invite?: string | null): Promise<void> {
     if (this.started) return;
     this.started = true;
 
     this.caps = await detectCapabilities();
-
-    // Load any persisted CRDT snapshot for late joiners / cold start.
-    await this.loadSnapshot();
 
     this.mesh.on(CHANNEL_APP, (peerId, payload) =>
       this.onAppMessage(peerId, payload),
@@ -162,7 +159,7 @@ export class GridNode {
       this.onPipeFrame(peerId, payload),
     );
 
-    await this.mesh.start();
+    await this.mesh.start(invite);
 
     this.updateSelfPresence();
     this.heartbeatTimer = setInterval(
@@ -192,6 +189,11 @@ export class GridNode {
 
   getSnapshot(): GridSnapshot {
     return this.snapshot;
+  }
+
+  /** Mint an offer-in-link invite blob (embed after `#` in a session link). */
+  createInvite(): Promise<string> {
+    return this.mesh.createInvite();
   }
 
   /** Submit an inference request to the grid. Returns the task/job id. */
@@ -388,7 +390,6 @@ export class GridNode {
   private onTasksChanged(): void {
     this.recompute();
     void this.evaluateOpenTasks();
-    this.maybePersistSnapshot();
   }
 
   /**
@@ -1123,50 +1124,7 @@ export class GridNode {
       }));
   }
 
-  // --- snapshot persistence (cold start for late joiners) -------------------
-
-  private snapshotDebounce: ReturnType<typeof setTimeout> | null = null;
-  private maybePersistSnapshot(): void {
-    if (this.snapshotDebounce) clearTimeout(this.snapshotDebounce);
-    this.snapshotDebounce = setTimeout(() => void this.persistSnapshot(), 2000);
-  }
-
-  private async persistSnapshot(): Promise<void> {
-    try {
-      const update = Y.encodeStateAsUpdate(this.doc);
-      const b64 = bytesToBase64(update);
-      await fetch("/api/signal", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "snapshot:save",
-          roomId: this.roomId,
-          snapshot: b64,
-        }),
-      });
-    } catch {
-      // best-effort
-    }
-  }
-
-  private async loadSnapshot(): Promise<void> {
-    try {
-      const res = await fetch("/api/signal", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "snapshot:load",
-          roomId: this.roomId,
-        }),
-      });
-      const { snapshot } = (await res.json()) as { snapshot: string | null };
-      if (snapshot) Y.applyUpdate(this.doc, base64ToBytes(snapshot));
-    } catch {
-      // best-effort
-    }
-  }
-
-  // --- snapshot / notification ---------------------------------------------
+  // --- notification ---------------------------------------------------------
 
   private broadcastApp(msg: AppMessage): void {
     this.mesh.broadcast(CHANNEL_APP, encodeApp(msg));
@@ -1222,19 +1180,6 @@ function encodeApp(msg: AppMessage): Uint8Array {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
 }
 
 export const FALLBACK_MODEL_ID = DEFAULT_MODEL_ID;
