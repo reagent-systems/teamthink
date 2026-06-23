@@ -15,22 +15,7 @@ export function useGridNode(roomId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    // An offer-in-link arrives in the URL fragment (`#i=...`), which never hits
-    // the server. Consume it, then strip it so a single-use offer isn't reused
-    // on refresh or reshare.
-    let invite: string | null = null;
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash.slice(1);
-      if (hash.includes("i=")) {
-        invite = hash;
-        window.history.replaceState(
-          null,
-          "",
-          window.location.pathname + window.location.search,
-        );
-      }
-    }
-    void node.start(invite).then(() => {
+    void node.start().then(() => {
       if (!cancelled) setReady(true);
     });
     return () => {

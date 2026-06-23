@@ -25,27 +25,28 @@ export const PEER_STALE_MS = 15000;
 export const TASK_STALE_MS = 30000;
 
 /**
- * Signaling transport tuning. The rendezvous is a KV-backed mailbox served by
- * `/api/signal` on our own deployment (no public WebRTC relays). It is
- * event-driven: a client holds one request open and the server returns as soon
- * as a message is waiting (or after `SIGNAL_POLL_HOLD_MS`), so there is no busy
- * polling. Mailboxes auto-expire so KV never accumulates state.
+ * Signaling lives on a Cloudflare Worker + Durable Object (see `worker/`), not
+ * on our own origin. Each peer holds a single WebSocket to the room's DO, which
+ * relays the WebRTC handshake and emits join/leave presence events natively
+ * from socket open/close — true pub/sub, no polling, native disconnect
+ * detection. The page host (Vercel / Cloudflare Pages) serves only static
+ * assets and is never in the signaling or data path.
  *
- * Cost is bounded by the mesh design, not by the number of users: only one peer
- * per room (the lowest-id "greeter") holds the room mailbox open to greet
- * newcomers, and every other peer stops talking to the server entirely once it
- * has a mesh link — further connections are brokered peer-to-peer.
+ * Set `NEXT_PUBLIC_SIGNAL_WS_URL` to the deployed Worker, e.g.
+ * `wss://teamthink-signal.<account>.workers.dev`.
  */
-export const SIGNAL_TTL_SECONDS = 120;
-/** Max time the server holds a long-poll open before returning empty (ms). */
-export const SIGNAL_POLL_HOLD_MS = 10000;
-/** How often the server checks the mailbox while holding a long-poll (ms). */
-export const SIGNAL_POLL_STEP_MS = 1000;
-/** Client backoff after a failed/empty signaling request (ms). */
-export const SIGNAL_RETRY_MS = 1500;
-/** Base path of the signaling endpoint (override for a separate host). */
-export const SIGNAL_ENDPOINT =
-  process.env.NEXT_PUBLIC_SIGNAL_ENDPOINT ?? "/api/signal";
+export const SIGNAL_WS_URL = (
+  process.env.NEXT_PUBLIC_SIGNAL_WS_URL ?? ""
+).replace(/\/+$/, "");
+
+/** HTTP base derived from the WS URL, used to list live pools (`/pools`). */
+export const POOLS_URL = SIGNAL_WS_URL
+  ? `${SIGNAL_WS_URL.replace(/^ws/, "http")}/pools`
+  : "";
+
+/** Client reconnect backoff bounds for the signaling socket (ms). */
+export const SIGNAL_RECONNECT_MIN_MS = 1000;
+export const SIGNAL_RECONNECT_MAX_MS = 15000;
 
 export type EngineKind = "webllm" | "transformers";
 
