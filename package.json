@@ -1,12 +1,17 @@
 {
   "name": "teamthink",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "desktop:install": "pnpm --dir desktop install",
+    "desktop:dev": "pnpm --dir desktop exec electron .",
+    "desktop:pack": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop dist",
+    "desktop:dir": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop pack",
+    "ralph": "bash scripts/ralph.sh"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

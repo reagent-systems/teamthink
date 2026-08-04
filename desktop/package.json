@@ -1,0 +1,68 @@
+{
+  "name": "teamthink-desktop",
+  "productName": "TeamThink",
+  "version": "0.2.0",
+  "description": "TeamThink — downloadable WebGPU inference grid (desktop)",
+  "homepage": "https://github.com/reagent-systems/teamthink",
+  "repository": "https://github.com/reagent-systems/teamthink",
+  "main": "main.cjs",
+  "author": "Reagent Systems <opensource@reagent.systems>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --linux AppImage deb tar.gz",
+    "dist:all": "electron-builder -mwl"
+  },
+  "build": {
+    "appId": "systems.reagent.teamthink",
+    "productName": "TeamThink",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../out",
+        "to": "out",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Development",
+      "synopsis": "Peer-to-peer WebGPU inference grid",
+      "maintainer": "Reagent Systems <opensource@reagent.systems>"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}

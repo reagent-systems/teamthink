@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Cloudflare Worker is its own project (Workers runtime, own tsconfig).
     "worker/**",
+    // Electron shell uses CommonJS require().
+    "desktop/**",
   ]),
 ]);
 

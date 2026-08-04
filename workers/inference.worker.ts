@@ -83,6 +83,9 @@ async function handleShardRun(
     const tokenId = sampleToken(logits, {
       temperature: req.options.temperature,
       topP: req.options.topP,
+      topK: req.options.topK,
+      seed: req.options.seed,
+      repetitionPenalty: req.options.repetitionPenalty,
     });
     result = { kind: "token", tokenId };
   } else {

@@ -34,7 +34,7 @@ export function SessionView({ roomId }: { roomId: string }) {
         </div>
 
         <div className="min-h-[70vh]">
-          <InferenceConsole node={node} snapshot={snapshot} />
+          <InferenceConsole node={node} snapshot={snapshot} roomId={roomId} />
         </div>
       </div>
     </main>
