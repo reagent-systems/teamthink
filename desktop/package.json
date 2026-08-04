@@ -3,8 +3,10 @@
   "productName": "TeamThink",
   "version": "0.2.0",
   "description": "TeamThink — downloadable WebGPU inference grid (desktop)",
+  "homepage": "https://github.com/reagent-systems/teamthink",
+  "repository": "https://github.com/reagent-systems/teamthink",
   "main": "main.cjs",
-  "author": "Reagent Systems",
+  "author": "Reagent Systems <opensource@reagent.systems>",
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -41,7 +43,8 @@
         "tar.gz"
       ],
       "category": "Development",
-      "synopsis": "Peer-to-peer WebGPU inference grid"
+      "synopsis": "Peer-to-peer WebGPU inference grid",
+      "maintainer": "Reagent Systems <opensource@reagent.systems>"
     },
     "mac": {
       "target": [
