@@ -41,9 +41,7 @@
         "tar.gz"
       ],
       "category": "Development",
-      "synopsis": "Peer-to-peer WebGPU inference grid",
-      "desktopName": "teamthink.desktop",
-      "executableName": "teamthink"
+      "synopsis": "Peer-to-peer WebGPU inference grid"
     },
     "mac": {
       "target": [

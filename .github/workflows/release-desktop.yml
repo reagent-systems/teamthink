@@ -28,7 +28,7 @@ jobs:
         working-directory: desktop
         run: |
           npm install
-          npx electron-builder --linux AppImage deb tar.gz
+          npx electron-builder --linux AppImage deb tar.gz --publish never
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -61,7 +61,7 @@ jobs:
       - working-directory: desktop
         run: |
           npm install
-          npx electron-builder --mac dmg zip
+          npx electron-builder --mac dmg zip --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: teamthink-macos
@@ -89,7 +89,7 @@ jobs:
       - working-directory: desktop
         run: |
           npm install
-          npx electron-builder --win nsis zip
+          npx electron-builder --win nsis zip --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: teamthink-windows
