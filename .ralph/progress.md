@@ -18,3 +18,11 @@
   - `desktop/release/teamthink-desktop-0.2.0.tar.gz`
 
 Promise ready: `FEATURES_1_5_AND_DESKTOP_RELEASE_READY`
+
+### Release
+
+- CI green: https://github.com/reagent-systems/teamthink/actions/runs/30954990669
+- GitHub Release: https://github.com/reagent-systems/teamthink/releases/tag/v0.2.0
+  - Linux: AppImage, deb, tar.gz
+  - macOS: dmg, zip
+  - Windows: Setup.exe, zip
