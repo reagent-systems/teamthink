@@ -113,6 +113,12 @@ worker/
   wrangler.toml         Worker + Durable Object config
 ```
 
+## Roadmap
+
+See **[ROADMAP.md](./ROADMAP.md)** for the 100-feature major update plan —
+LM Studio–class local UX, Firecrawl-class web agents, Firebase-class identity /
+persistence, and Petals-grade mesh scaling.
+
 ## Notes & limits
 
 - Full mesh suits tens of peers; larger grids need a partial-mesh/gossip
