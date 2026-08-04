@@ -20,7 +20,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - name: Install & build static site
         run: |
           pnpm install --frozen-lockfile
@@ -34,7 +33,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: teamthink-linux
-          path: desktop/release/*.{AppImage,deb,tar.gz}
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+            desktop/release/*.tar.gz
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -55,7 +57,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - run: pnpm install --frozen-lockfile && pnpm build
       - working-directory: desktop
         run: |
@@ -64,7 +65,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: teamthink-macos
-          path: desktop/release/*.{dmg,zip}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
@@ -82,7 +85,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - run: pnpm install --frozen-lockfile && pnpm build
       - working-directory: desktop
         run: |
@@ -91,7 +93,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: teamthink-windows
-          path: desktop/release/*.{exe,zip}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.zip
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
