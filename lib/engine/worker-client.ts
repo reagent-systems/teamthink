@@ -113,7 +113,13 @@ export class InferenceClient {
   shardRun(
     input: ShardInput,
     isLast: boolean,
-    options: { temperature: number; topP: number },
+    options: {
+      temperature: number;
+      topP: number;
+      topK?: number;
+      seed?: number | null;
+      repetitionPenalty?: number;
+    },
   ): Promise<ShardResult> {
     const reqId = this.nextId();
     const transfer =

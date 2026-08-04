@@ -113,11 +113,31 @@ worker/
   wrangler.toml         Worker + Durable Object config
 ```
 
+## Desktop app
+
+Browser WebGPU is limited. For a downloadable Chromium shell with WebGPU
+flags enabled:
+
+```bash
+pnpm desktop:pack          # builds static site + Linux AppImage/deb/tar.gz
+# artifacts → desktop/release/
+```
+
+Dev against a running `pnpm dev` server:
+
+```bash
+pnpm desktop:install && pnpm desktop:dev
+```
+
+Tagged releases (`v*`) are built by `.github/workflows/release-desktop.yml`.
+See [desktop/README.md](./desktop/README.md).
+
 ## Roadmap
 
 See **[ROADMAP.md](./ROADMAP.md)** for the 100-feature major update plan —
 LM Studio–class local UX, Firecrawl-class web agents, Firebase-class identity /
-persistence, and Petals-grade mesh scaling.
+persistence, and Petals-grade mesh scaling. Phase 0 features 1–5 are underway
+via the Ralph loop (`.ralph/`, `pnpm ralph`).
 
 ## Notes & limits
 

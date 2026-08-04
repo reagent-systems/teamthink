@@ -12,6 +12,12 @@ export interface ChatMessage {
 export interface GenerateOptions {
   maxTokens?: number;
   temperature?: number;
+  topP?: number;
+  topK?: number;
+  seed?: number | null;
+  stopSequences?: string[];
+  repetitionPenalty?: number;
+  jsonMode?: boolean;
 }
 
 export interface LoadProgress {
@@ -65,7 +71,13 @@ export type WorkerRequest =
       reqId: string;
       input: ShardInput;
       isLast: boolean;
-      options: { temperature: number; topP: number };
+      options: {
+        temperature: number;
+        topP: number;
+        topK?: number;
+        seed?: number | null;
+        repetitionPenalty?: number;
+      };
     }
   | { type: "shardReset"; reqId: string };
 

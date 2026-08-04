@@ -27,11 +27,11 @@ browser-native and serverless.
 
 Ship the product people expect when they open a local / mesh AI app.
 
-1. `[ ]` **Multi-turn chat threads** — persistent conversation history per room with rename, pin, archive, and export (JSON / Markdown / HTML).
-2. `[ ]` **System prompts & presets** — reusable prompt library with temperature / top-p / max-tokens defaults (LM Studio-style configs).
-3. `[ ]` **Sampler control panel** — temperature, top-p, top-k, repetition penalty, presence/frequency penalty, stop sequences, seed.
-4. `[ ]` **Structured / JSON output mode** — constrained decoding or schema-guided generation for agent pipelines.
-5. `[ ]` **Streaming UX upgrades** — token-level markdown rendering, code blocks with copy, thinking/reasoning collapse for CoT models.
+1. `[x]` **Multi-turn chat threads** — persistent conversation history per room with rename, pin, archive, and export (JSON / Markdown / HTML).
+2. `[x]` **System prompts & presets** — reusable prompt library with temperature / top-p / max-tokens defaults (LM Studio-style configs).
+3. `[x]` **Sampler control panel** — temperature, top-p, top-k, repetition penalty, presence/frequency penalty, stop sequences, seed.
+4. `[x]` **Structured / JSON output mode** — constrained decoding or schema-guided generation for agent pipelines.
+5. `[x]` **Streaming UX upgrades** — token-level markdown rendering, code blocks with copy, thinking/reasoning collapse for CoT models.
 6. `[ ]` **Model load / unload lifecycle UI** — progress, cancel, VRAM meter, “keep warm” vs “evict on idle” policies.
 7. `[ ]` **Keyboard-first chat** — Cmd/Ctrl+Enter send, slash commands (`/model`, `/clear`, `/stop`), message edit & regenerate.
 8. `[ ]` **Invite & room UX** — short room codes, QR join, guest display names, role badges (owner / compute / request-only).
@@ -125,7 +125,7 @@ Scale beyond full-mesh toy rooms into a real inference swarm.
 68. `[ ]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
 69. `[ ]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
 70. `[ ]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
-71. `[ ]` **Native helper app** — optional Electron/Tauri sidecar for background WebGPU, better file access, autostart daemon.
+71. `[~]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
 72. `[ ]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
 73. `[ ]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
 74. `[ ]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.

@@ -7,6 +7,9 @@ export interface SampleOptions {
   temperature?: number;
   topP?: number;
   topK?: number;
+  /** Reserved for deterministic sampling when engines support it. */
+  seed?: number | null;
+  repetitionPenalty?: number;
 }
 
 /** Extract the logits row for the last position from a [1, seq, vocab] tensor. */

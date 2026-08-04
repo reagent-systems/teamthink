@@ -59,7 +59,16 @@ export interface PipelinePlan {
   numShards: number;
   /** Ordered by shardIndex; shard 0 is the chain head. */
   shards: ShardAssignment[];
-  options: { temperature: number; topP: number; maxTokens: number };
+  options: {
+    temperature: number;
+    topP: number;
+    maxTokens: number;
+    topK?: number;
+    seed?: number | null;
+    stopSequences?: string[];
+    repetitionPenalty?: number;
+    jsonMode?: boolean;
+  };
 }
 
 export type PipelineStatus =

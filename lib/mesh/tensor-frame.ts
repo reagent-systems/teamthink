@@ -10,6 +10,11 @@ export type GenOptions = {
   temperature: number;
   topP: number;
   maxTokens: number;
+  topK?: number;
+  seed?: number | null;
+  stopSequences?: string[];
+  repetitionPenalty?: number;
+  jsonMode?: boolean;
 };
 
 export type PipeMessage =

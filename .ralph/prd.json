@@ -1,0 +1,69 @@
+{
+  "name": "teamthink-phase0-desktop",
+  "branch": "cursor/major-update-roadmap-bfee",
+  "completionPromise": "FEATURES_1_5_AND_DESKTOP_RELEASE_READY",
+  "stories": [
+    {
+      "id": "1",
+      "title": "Multi-turn chat threads",
+      "passes": true,
+      "acceptance": [
+        "Threads persist per room in localStorage",
+        "Rename, pin, archive supported",
+        "Export thread as JSON, Markdown, HTML",
+        "Submit sends full conversation history to the grid"
+      ]
+    },
+    {
+      "id": "2",
+      "title": "System prompts & presets",
+      "passes": true,
+      "acceptance": [
+        "Built-in presets with system prompt + sampler defaults",
+        "Custom presets savable/deletable",
+        "Selecting a preset applies system prompt and sampler defaults"
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Sampler control panel",
+      "passes": true,
+      "acceptance": [
+        "UI for temperature, top-p, top-k, max tokens, seed, stop sequences",
+        "Options flow through runPrompt into pipe GenOptions / sampling"
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Structured / JSON output mode",
+      "passes": true,
+      "acceptance": [
+        "Toggle for JSON mode with optional schema",
+        "System instruction injected when JSON mode is on",
+        "Assistant bubbles attempt to pretty-print valid JSON"
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Streaming UX upgrades",
+      "passes": true,
+      "acceptance": [
+        "Token stream renders as markdown",
+        "Fenced code blocks have a copy button",
+        "Thinking/reasoning blocks (<think> or similar) are collapsible"
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Downloadable Electron desktop app",
+      "passes": true,
+      "acceptance": [
+        "desktop/ Electron shell loads the static Next export",
+        "WebGPU flags enabled for Chromium",
+        "pnpm desktop:pack produces Linux artifacts",
+        "GitHub Actions release workflow on v* tags",
+        "README documents download/run"
+      ]
+    }
+  ]
+}

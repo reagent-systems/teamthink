@@ -58,7 +58,16 @@ const PIPE_STEP_TIMEOUT_MS = 30000;
 interface PipeJobState {
   planId: string;
   jobId: string;
-  options: { temperature: number; topP: number; maxTokens: number };
+  options: {
+    temperature: number;
+    topP: number;
+    maxTokens: number;
+    topK?: number;
+    seed?: number | null;
+    stopSequences?: string[];
+    repetitionPenalty?: number;
+    jsonMode?: boolean;
+  };
   isFirst: boolean;
   isLast: boolean;
   nextPeerId: string | null;
@@ -122,6 +131,19 @@ export class GridNode {
   private provisionedRepo: string | null = null;
   private jobs = new Map<string, JobView>();
   private jobMessages = new Map<string, ChatMessage[]>();
+  private jobOptions = new Map<
+    string,
+    {
+      temperature: number;
+      topP: number;
+      maxTokens: number;
+      topK?: number;
+      seed?: number | null;
+      stopSequences?: string[];
+      repetitionPenalty?: number;
+      jsonMode?: boolean;
+    }
+  >();
   private jobQueue: string[] = [];
   private currentJobId: string | null = null;
 
@@ -254,16 +276,40 @@ export class GridNode {
    * Run a prompt against the currently provisioned (warmed) model. Queues if the
    * model is still warming or another prompt is in flight. Returns the job id.
    */
-  runPrompt(messages: ChatMessage[]): string | null {
+  runPrompt(
+    messages: ChatMessage[],
+    options?: Partial<{
+      temperature: number;
+      topP: number;
+      maxTokens: number;
+      topK: number;
+      seed: number | null;
+      stopSequences: string[];
+      repetitionPenalty: number;
+      jsonMode: boolean;
+    }>,
+  ): string | null {
     const planId = this.provisionedPlanId;
     if (!planId) return null;
     const jobId = `j_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
     const modelId = this.pipelines.get(planId)?.plan.modelId ?? planId;
+    const planOpts = this.pipelines.get(planId)?.plan.options;
+    const merged = {
+      temperature: options?.temperature ?? planOpts?.temperature ?? 0.7,
+      topP: options?.topP ?? planOpts?.topP ?? 0.95,
+      maxTokens: options?.maxTokens ?? planOpts?.maxTokens ?? 256,
+      topK: options?.topK ?? planOpts?.topK ?? 40,
+      seed: options?.seed ?? planOpts?.seed ?? null,
+      stopSequences: options?.stopSequences ?? planOpts?.stopSequences ?? [],
+      repetitionPenalty:
+        options?.repetitionPenalty ?? planOpts?.repetitionPenalty ?? 1.1,
+      jsonMode: options?.jsonMode ?? planOpts?.jsonMode ?? false,
+    };
     this.jobs.set(jobId, {
       jobId,
       planId,
       modelId,
-      prompt: messages.at(-1)?.content ?? "",
+      prompt: messages.filter((m) => m.role === "user").at(-1)?.content ?? "",
       status: "queued",
       text: "",
       outIds: [],
@@ -272,6 +318,7 @@ export class GridNode {
       createdAt: Date.now(),
     });
     this.jobMessages.set(jobId, messages);
+    this.jobOptions.set(jobId, merged);
     this.jobQueue.push(jobId);
     this.recompute();
     void this.maybeRunNext();
@@ -717,13 +764,24 @@ export class GridNode {
     this.jobMessages.delete(jobId);
     if (!messages) return;
     this.currentJobId = jobId;
-    await this.startJob(planId, jobId, messages);
+    const opts = this.jobOptions.get(jobId);
+    await this.startJob(planId, jobId, messages, opts);
   }
 
   private async startJob(
     planId: string,
     jobId: string,
     messages: ChatMessage[],
+    options?: {
+      temperature: number;
+      topP: number;
+      maxTokens: number;
+      topK?: number;
+      seed?: number | null;
+      stopSequences?: string[];
+      repetitionPenalty?: number;
+      jsonMode?: boolean;
+    },
   ): Promise<void> {
     const record = this.pipelines.get(planId);
     const view = this.jobs.get(jobId);
@@ -742,12 +800,16 @@ export class GridNode {
       const tok = await loadTokenizer(record.plan.repo);
       const ids = await encodePrompt(tok, messages);
       const head = record.plan.shards.find((s) => s.shardIndex === 0)!.peerId;
+      const genOptions = {
+        ...record.plan.options,
+        ...options,
+      };
       this.sendPipe(head, {
         kind: "start",
         jobId,
         planId,
         tokenIds: ids,
-        options: record.plan.options,
+        options: genOptions,
       });
     } catch (err) {
       if (view) {
@@ -783,16 +845,23 @@ export class GridNode {
     }
   }
 
-  private ensurePipeJob(planId: string, jobId: string): PipeJobState | null {
+  private ensurePipeJob(
+    planId: string,
+    jobId: string,
+    options?: PipeJobState["options"],
+  ): PipeJobState | null {
     const existing = this.pipeJobs.get(jobId);
-    if (existing) return existing;
+    if (existing) {
+      if (options) existing.options = options;
+      return existing;
+    }
     const record = this.pipelines.get(planId);
     if (!record) return null;
     const role = roleFor(record.plan, this.peerId);
     const state: PipeJobState = {
       planId,
       jobId,
-      options: record.plan.options,
+      options: options ?? record.plan.options,
       isFirst: role.isFirst,
       isLast: role.isLast,
       nextPeerId: role.nextPeerId,
@@ -826,7 +895,7 @@ export class GridNode {
         return;
       }
       case "start": {
-        const job = this.ensurePipeJob(msg.planId, msg.jobId);
+        const job = this.ensurePipeJob(msg.planId, msg.jobId, msg.options);
         if (!job) return;
         await this.runShardStep(job, { kind: "ids", ids: msg.tokenIds }, 0);
         return;
@@ -889,6 +958,9 @@ export class GridNode {
       const result = await this.inference.shardRun(input, job.isLast, {
         temperature: job.options.temperature,
         topP: job.options.topP,
+        topK: job.options.topK,
+        seed: job.options.seed,
+        repetitionPenalty: job.options.repetitionPenalty,
       });
       if (result.kind === "hidden") {
         if (job.nextPeerId) {
@@ -955,6 +1027,7 @@ export class GridNode {
     const elapsed = (performance.now() - view.startedAt) / 1000;
     view.tokensPerSec = elapsed > 0 ? view.outIds.length / elapsed : null;
 
+    const pipeJob = this.pipeJobs.get(jobId);
     const record = this.pipelines.get(view.planId);
     if (record) {
       try {
@@ -965,7 +1038,33 @@ export class GridNode {
       }
     }
 
-    if (done) {
+    // Soft stop-sequence trim on the requester (sampler-side stop is best-effort).
+    const stops = pipeJob?.options.stopSequences ?? [];
+    let hitStop = false;
+    if (stops.length && view.text) {
+      for (const s of stops) {
+        const idx = view.text.indexOf(s);
+        if (idx >= 0) {
+          view.text = view.text.slice(0, idx);
+          hitStop = true;
+          break;
+        }
+      }
+    }
+
+    if (done || hitStop) {
+      if (hitStop && pipeJob) {
+        pipeJob.stopped = true;
+        for (const s of record?.plan.shards ?? []) {
+          if (s.peerId !== this.peerId) {
+            this.sendPipe(s.peerId, {
+              kind: "abort",
+              jobId,
+              reason: "stop sequence",
+            });
+          }
+        }
+      }
       view.status = "done";
       this.clearStepTimer(jobId);
       this.pipeJobs.delete(jobId);

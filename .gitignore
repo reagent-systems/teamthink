@@ -3,6 +3,9 @@
 # dependencies
 /node_modules
 /worker/node_modules
+/desktop/node_modules
+/desktop/release
+/desktop/dist
 /.pnp
 .pnp.*
 .yarn/*
