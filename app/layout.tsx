@@ -3,7 +3,12 @@ import { Analytics } from "@vercel/analytics/next";
 import { bodySans, displaySerif, mono } from "./fonts";
 import "./globals.css";
 
+/** Production origin for absolute Open Graph / Twitter image URLs. */
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://teamthink.reagent-systems.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "TeamThink — Shared WebGPU Inference Grid",
   description:
     "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
@@ -11,7 +16,17 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TeamThink" }],
+    url: siteUrl,
+    siteName: "TeamThink",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "TeamThink — Serverless WebGPU Inference Grid",
+        type: "image/jpeg",
+      },
+    ],
     type: "website",
   },
   twitter: {
@@ -19,7 +34,7 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 
