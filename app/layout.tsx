@@ -20,11 +20,11 @@ export const metadata: Metadata = {
     siteName: "TeamThink",
     images: [
       {
-        url: "/og.png",
+        url: "/og.jpg",
         width: 1200,
         height: 630,
         alt: "TeamThink — Serverless WebGPU Inference Grid",
-        type: "image/png",
+        type: "image/jpeg",
       },
     ],
     type: "website",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 
