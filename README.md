@@ -1,16 +1,10 @@
 # TeamThink — Serverless WebGPU Inference Grid
 
-<p align="center">
-  <img src="public/og.jpg" alt="TeamThink — Serverless WebGPU Inference Grid" width="1200" />
-</p>
+![TeamThink — Serverless WebGPU Inference Grid](./public/og.jpg)
 
 Spin up a session, share an invite link, and run model inference across a
 peer-to-peer mesh of browsers. Each device that joins becomes a WebGPU compute
 node; inference requests are routed to whichever peer has capacity.
-
-> **X / social card for this repo:** GitHub does not read `public/og.jpg` for
-> `github.com/…` links. A repo admin must upload `.github/social-preview.jpg`
-> (&lt; 1 MB) under **Settings → Social preview** (see `.cursor/rules/og-social-preview.mdc`).
 
 The page itself is a **fully static site** (host it on Vercel, Cloudflare Pages,
 or any CDN). All realtime coordination lives on a small **Cloudflare Worker +
