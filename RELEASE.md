@@ -42,9 +42,44 @@ to the release for the tag.
 
 ### What’s new in 0.2.0
 
-1. Multi-turn chat threads (persist, pin, archive, export)
-2. System prompts & presets
-3. Sampler control panel
-4. Structured / JSON output mode
-5. Streaming markdown + code copy + thinking collapse
-6. Electron desktop app with WebGPU flags
+#### 1. Multi-turn threads (persist, pin, archive, export)
+
+You open a room with teammates, chase three half-finished ideas at once, and
+lose the thread when the tab refreshes. Now each room keeps real conversations:
+rename them, pin the ones that matter, archive the noise, and export to JSON,
+Markdown, or HTML when you need to share or file something away.
+
+#### 2. System prompts & presets
+
+You keep rewriting the same “be concise / act like a code reviewer / answer in
+JSON” preamble every time you switch models. Pick a builtin preset—or save your
+own—and the system prompt plus sampler defaults come with it, so the next
+session starts in character instead of from scratch.
+
+#### 3. Sampler panel wired into generation
+
+You get a model that rambles, or one that collapses into the same phrase, and
+the old console gave you no knobs. Open the sampler panel: temperature, top-p,
+top-k, max tokens, seed, stop sequences, and penalties flow straight into the
+grid’s generation path, so you tune the run the same way you would in a local
+desktop LLM app.
+
+#### 4. JSON mode + optional schema
+
+You’re piping answers into another tool and free-form prose keeps breaking the
+parser. Flip on JSON mode, optionally paste a schema, and TeamThink steers the
+model toward a single JSON value—then pretty-prints it when the stream lands.
+
+#### 5. Streaming markdown, code copy, thinking collapse
+
+You’re watching tokens crawl out as a monospace wall and can’t skim the
+structure. Streams render as markdown as they arrive: headings and emphasis
+read cleanly, fenced code gets a one-click copy, and long `<think>` /
+reasoning blocks tuck into a collapsible panel so the answer stays in focus.
+
+#### 6. Electron desktop app with WebGPU flags + CI release
+
+You want to contribute more processing to the network, but the browser tab
+caps what WebGPU can see—or flakes on large VRAM. Download the Electron desktop
+app we just released: Chromium with WebGPU flags enabled, packaged for Linux,
+macOS, and Windows via the `v*` release pipeline.
