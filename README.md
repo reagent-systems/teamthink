@@ -1,8 +1,6 @@
 # TeamThink — Serverless WebGPU Inference Grid
 
-<p align="center">
-  <img src="public/og.png" alt="TeamThink — Serverless WebGPU Inference Grid" width="1200" />
-</p>
+![TeamThink — Serverless WebGPU Inference Grid](./public/og.jpg)
 
 Spin up a session, share an invite link, and run model inference across a
 peer-to-peer mesh of browsers. Each device that joins becomes a WebGPU compute
@@ -150,3 +148,7 @@ via the Ralph loop (`.ralph/`, `pnpm ralph`).
 - Routing distributes whole requests across devices. Pooling VRAM to run a model
   larger than any single device (pipeline/tensor sharding) is experimental and
   latency-bound; it is intentionally deferred behind the engine interface.
+
+- For X/Twitter cards when sharing the **GitHub repo URL**, upload
+  `.github/social-preview.jpg` under **Settings → Social preview** (must be
+  under 1 MB). See `.cursor/rules/og-social-preview.mdc`.

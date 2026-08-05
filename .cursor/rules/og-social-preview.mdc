@@ -1,0 +1,37 @@
+---
+description: Keep GitHub and site Open Graph / X preview images working
+globs:
+alwaysApply: false
+---
+
+# OG / social preview images
+
+X/Twitter (and Slack/Discord) use different sources depending on the URL:
+
+| URL shared | What sets the card image |
+|------------|---------------------------|
+| `https://github.com/reagent-systems/teamthink` | **GitHub Social preview** (Settings → Social preview). Not `public/og.png` alone. |
+| `https://teamthink.reagent-systems.com` (site) | Next.js `metadata.openGraph` / `twitter` with absolute URLs via `metadataBase`. |
+
+## Site (`teamthink.reagent-systems.com`)
+
+- Keep `public/og.jpg` (preferred) or `public/og.png` at **1200×630**, **strictly under 1 MB** (aim &lt; 500 KB).
+- Set `metadataBase` to `https://teamthink.reagent-systems.com` in `app/layout.tsx`.
+- After deploy, verify page source has absolute `og:image` / `twitter:image`.
+- Refresh caches if needed: [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (also used by many scrapers).
+
+## GitHub repo card (required for X when linking the repo)
+
+GitHub has **no public API** for social preview upload. Images must be **under 1 MB**.
+
+1. Ensure `.github/social-preview.jpg` exists, **&lt; 1 MB**, ≥ 640×320 (prefer 1200×630 or 1280×640).
+2. A repo **admin** uploads it once (or when the art changes):
+
+   - Open https://github.com/reagent-systems/teamthink/settings  
+   - **Social preview** → **Edit** → **Upload an image…**  
+   - Choose `.github/social-preview.jpg`
+
+3. Confirm https://github.com/reagent-systems/teamthink page source `og:image` contains `repository-images` (not `opengraph.githubassets.com`).
+4. Optional helper: `scripts/upload-github-social-preview.mjs` (Playwright + saved GitHub login).
+
+After upload, X may cache the old card; re-paste the link or wait for cache expiry.
