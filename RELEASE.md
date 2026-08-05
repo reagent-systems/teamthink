@@ -44,42 +44,37 @@ to the release for the tag.
 
 #### 1. Multi-turn threads (persist, pin, archive, export)
 
-You open a room with teammates, chase three half-finished ideas at once, and
-lose the thread when the tab refreshes. Now each room keeps real conversations:
-rename them, pin the ones that matter, archive the noise, and export to JSON,
-Markdown, or HTML when you need to share or file something away.
+You chat in a room, then lose the history when the page reloads. Threads now
+save per room. You can rename them, pin important ones, archive old ones, and
+export to JSON, Markdown, or HTML.
 
 #### 2. System prompts & presets
 
-You keep rewriting the same “be concise / act like a code reviewer / answer in
-JSON” preamble every time you switch models. Pick a builtin preset—or save your
-own—and the system prompt plus sampler defaults come with it, so the next
-session starts in character instead of from scratch.
+You reuse the same system prompt and settings across chats. Pick a built-in
+preset, or save your own. The preset sets the system prompt and default sampler
+values for the next run.
 
 #### 3. Sampler panel wired into generation
 
-You get a model that rambles, or one that collapses into the same phrase, and
-the old console gave you no knobs. Open the sampler panel: temperature, top-p,
-top-k, max tokens, seed, stop sequences, and penalties flow straight into the
-grid’s generation path, so you tune the run the same way you would in a local
-desktop LLM app.
+You need to change temperature, top-p, top-k, max tokens, seed, stop sequences,
+or penalties. The sampler panel sends those values into the grid generation
+path for each prompt.
 
 #### 4. JSON mode + optional schema
 
-You’re piping answers into another tool and free-form prose keeps breaking the
-parser. Flip on JSON mode, optionally paste a schema, and TeamThink steers the
-model toward a single JSON value—then pretty-prints it when the stream lands.
+You need model output as JSON for another program. Turn on JSON mode and
+optionally add a schema. The model is instructed to return JSON only, and valid
+JSON is pretty-printed when the reply finishes.
 
 #### 5. Streaming markdown, code copy, thinking collapse
 
-You’re watching tokens crawl out as a monospace wall and can’t skim the
-structure. Streams render as markdown as they arrive: headings and emphasis
-read cleanly, fenced code gets a one-click copy, and long `<think>` /
-reasoning blocks tuck into a collapsible panel so the answer stays in focus.
+You want readable output while tokens stream. Replies render as markdown.
+Code blocks have a copy button. Long `<think>` / reasoning sections collapse so
+the main answer stays easy to read.
 
 #### 6. Electron desktop app with WebGPU flags + CI release
 
-You want to contribute more processing to the network, but the browser tab
-caps what WebGPU can see—or flakes on large VRAM. Download the Electron desktop
-app we just released: Chromium with WebGPU flags enabled, packaged for Linux,
-macOS, and Windows via the `v*` release pipeline.
+You want to contribute more GPU capacity, but the browser limits WebGPU or
+VRAM. Download the Electron desktop app. It runs Chromium with WebGPU flags
+enabled and ships for Linux, macOS, and Windows through the `v*` release
+pipeline.
