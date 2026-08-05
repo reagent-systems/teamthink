@@ -40,6 +40,10 @@ git push origin v0.2.0
 `.github/workflows/release-desktop.yml` builds installers and attaches them
 to the release for the tag.
 
+For **major/minor** tags, rewrite “What’s new” as simplified use-case scenarios
+(agent rule: `.cursor/rules/release-notes.mdc`). Keep the GitHub Social preview
+in sync if art changed (`.cursor/rules/og-social-preview.mdc`).
+
 ### What’s new in 0.2.0
 
 #### 1. Multi-turn threads (persist, pin, archive, export)

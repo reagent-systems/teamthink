@@ -8,6 +8,10 @@ Spin up a session, share an invite link, and run model inference across a
 peer-to-peer mesh of browsers. Each device that joins becomes a WebGPU compute
 node; inference requests are routed to whichever peer has capacity.
 
+> **X / social card for this repo:** GitHub does not read `public/og.png` for
+> `github.com/…` links. A repo admin must upload `.github/social-preview.jpg`
+> under **Settings → Social preview** (see `.cursor/rules/og-social-preview.mdc`).
+
 The page itself is a **fully static site** (host it on Vercel, Cloudflare Pages,
 or any CDN). All realtime coordination lives on a small **Cloudflare Worker +
 Durable Object** (`worker/`): peers hold one WebSocket to the room's DO, which
