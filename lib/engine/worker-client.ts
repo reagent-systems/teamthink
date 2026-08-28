@@ -34,7 +34,13 @@ interface PendingShardRun {
   reject: (e: Error) => void;
 }
 
-type Pending = PendingLoad | PendingGenerate | PendingShardRun;
+interface PendingEmbed {
+  type: "embed";
+  resolve: (v: number[][]) => void;
+  reject: (e: Error) => void;
+}
+
+type Pending = PendingLoad | PendingGenerate | PendingShardRun | PendingEmbed;
 
 export class InferenceClient {
   private worker: Worker | null = null;
@@ -150,6 +156,15 @@ export class InferenceClient {
     });
   }
 
+  /** OpenAI-shaped embedding vectors for RAG / semantic search. */
+  embed(modelId: string, texts: string[]): Promise<number[][]> {
+    const reqId = this.nextId();
+    return new Promise<number[][]>((resolve, reject) => {
+      this.pending.set(reqId, { type: "embed", resolve, reject });
+      this.postRequest({ type: "embed", reqId, modelId, texts });
+    });
+  }
+
   terminate(): void {
     this.worker?.terminate();
     this.worker = null;
@@ -191,6 +206,12 @@ export class InferenceClient {
       case "shardResult":
         if (p.type === "shardRun") {
           p.resolve(msg.result);
+          this.pending.delete(msg.reqId);
+        }
+        break;
+      case "embedDone":
+        if (p.type === "embed") {
+          p.resolve(msg.vectors);
           this.pending.delete(msg.reqId);
         }
         break;

@@ -79,7 +79,8 @@ export type WorkerRequest =
         repetitionPenalty?: number;
       };
     }
-  | { type: "shardReset"; reqId: string };
+  | { type: "shardReset"; reqId: string }
+  | { type: "embed"; reqId: string; modelId: string; texts: string[] };
 
 export type WorkerResponse =
   | { type: "progress"; reqId: string; progress: number; text: string }
@@ -88,4 +89,5 @@ export type WorkerResponse =
   | { type: "done"; reqId: string; text: string }
   | { type: "error"; reqId: string; error: string }
   | { type: "shardLoaded"; reqId: string }
-  | { type: "shardResult"; reqId: string; result: ShardResult };
+  | { type: "shardResult"; reqId: string; result: ShardResult }
+  | { type: "embedDone"; reqId: string; vectors: number[][] };

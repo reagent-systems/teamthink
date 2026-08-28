@@ -211,6 +211,14 @@ export const MODELS: ModelSpec[] = [
     modelId: "HuggingFaceTB/SmolVLM-256M-Instruct",
     vramMb: 900,
   },
+  {
+    id: "minilm-l6",
+    label: "MiniLM L6 (embeddings)",
+    engine: "transformers",
+    modality: "embedding",
+    modelId: "Xenova/all-MiniLM-L6-v2",
+    vramMb: 200,
+  },
 ];
 
 /**
@@ -283,3 +291,4 @@ export function getModel(id: string): ModelSpec | undefined {
 }
 
 export const DEFAULT_MODEL_ID = "smollm2-360m";
+export const DEFAULT_EMBEDDING_MODEL_ID = "minilm-l6";

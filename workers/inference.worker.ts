@@ -138,6 +138,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     } else if (req.type === "shardReset") {
       shardRunner?.reset();
       post({ type: "ready", reqId: req.reqId });
+    } else if (req.type === "embed") {
+      const model = getModel(req.modelId);
+      if (!model) throw new Error(`unknown model ${req.modelId}`);
+      const engine = engineFor(model.engine) as TransformersEngine;
+      const vectors = await engine.embed(model, req.texts);
+      post({ type: "embedDone", reqId: req.reqId, vectors });
     }
   } catch (err) {
     post({

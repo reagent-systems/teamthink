@@ -38,7 +38,12 @@ import {
   type SamplerSettings,
 } from "@/lib/chat/types";
 import { getModel } from "@/lib/config";
-import { listGridModels } from "@/lib/models/registry";
+import {
+  isShardedModel,
+  isVisionModel,
+  listConsoleModels,
+} from "@/lib/models/console-models";
+import { retrieveContext } from "@/lib/rag/store";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
 
@@ -51,6 +56,7 @@ export function InferenceConsole({
   pickModelId,
   registryVersion = 0,
   onManualModelChange,
+  ragEnabled = false,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
@@ -58,12 +64,15 @@ export function InferenceConsole({
   pickModelId?: string | null;
   registryVersion?: number;
   onManualModelChange?: () => void;
+  ragEnabled?: boolean;
 }) {
   const gridModels = useMemo(
-    () => listGridModels(),
+    () => listConsoleModels(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when browser adds models
     [registryVersion],
   );
+  const [attachImage, setAttachImage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [modelId, setModelId] = useState(() => {
     if (typeof window === "undefined") return gridModels[0]?.id ?? CUSTOM;
     const active = ensureActiveThread(roomId);
@@ -129,6 +138,36 @@ export function InferenceConsole({
     }
   }, [snapshot.pipelines, roomId]);
 
+  // Task-based jobs (local / vision models) stream via snapshot.tasks + streams.
+  useEffect(() => {
+    const current = threadRef.current;
+    if (!current) return;
+    let next = current;
+    let dirty = false;
+    for (const task of snapshot.tasks) {
+      if (task.requester !== snapshot.selfId) continue;
+      const assistant = next.messages.find(
+        (m) => m.role === "assistant" && m.jobId === task.id,
+      );
+      if (!assistant) continue;
+      const stream = snapshot.streams[task.id] ?? "";
+      let text = stream;
+      if (task.status === "error") text = task.error ?? "failed";
+      else if (task.status === "done") text = task.result ?? stream;
+      if (next.jsonMode && task.status === "done" && text) {
+        text = formatMaybeJson(text);
+      }
+      if (assistant.content !== text) {
+        next = updateAssistantByJob(next, task.id, text);
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      setThread(next);
+      setThreads(listThreads(roomId));
+    }
+  }, [snapshot.tasks, snapshot.streams, snapshot.selfId, roomId]);
+
   const canHost = !!snapshot.caps?.webgpu;
   const provisionedRef = useRef<string>("");
   useEffect(() => {
@@ -171,8 +210,8 @@ export function InferenceConsole({
     });
   }
 
-  function submit(forcedText?: string) {
-    if (!thread) return;
+  async function submit(forcedText?: string) {
+    if (!thread || submitting) return;
     const text = (forcedText ?? prompt).trim();
     if (!text) return;
 
@@ -182,36 +221,61 @@ export function InferenceConsole({
       return;
     }
 
-    if (isCustom) {
-      const repo = customRepo.trim();
-      if (!repo) return;
-      if (provisionedRef.current !== `custom:${repo}`) loadCustom();
-    } else if (model?.hfRepo) {
-      void node.provision(model.id, model.hfRepo);
+    setSubmitting(true);
+    try {
+      if (isCustom) {
+        const repo = customRepo.trim();
+        if (!repo) return;
+        if (provisionedRef.current !== `custom:${repo}`) loadCustom();
+      } else if (model?.hfRepo) {
+        void node.provision(model.id, model.hfRepo);
+      }
+
+      const ragContext =
+        ragEnabled && !isCustom
+          ? await retrieveContext(roomId, text)
+          : undefined;
+      const messages = buildRunMessages(thread, text, {
+        image: attachImage ?? undefined,
+        ragContext,
+      });
+
+      let jobId: string | null = null;
+      if (isCustom) {
+        jobId = null;
+      } else if (model && isShardedModel(model)) {
+        jobId = node.runPrompt(messages, {
+          temperature: thread.sampler.temperature,
+          topP: thread.sampler.topP,
+          topK: thread.sampler.topK,
+          maxTokens: thread.sampler.maxTokens,
+          seed: thread.sampler.seed,
+          stopSequences: thread.sampler.stopSequences,
+          repetitionPenalty: thread.sampler.repetitionPenalty,
+          jsonMode: thread.jsonMode,
+        });
+      } else if (model) {
+        jobId = node.submit(model.id, messages) || null;
+      }
+      if (!jobId) return;
+
+      let next = appendMessage(thread, {
+        role: "user",
+        content: text,
+        image: attachImage ?? undefined,
+      });
+      next = appendMessage(next, { role: "assistant", content: "", jobId });
+      next = {
+        ...next,
+        modelId: isCustom ? customRepo.trim() : effectiveModelId,
+      };
+      saveThread(next);
+      refreshThreads(next);
+      setPrompt("");
+      setAttachImage(null);
+    } finally {
+      setSubmitting(false);
     }
-
-    const messages = buildRunMessages(thread, text);
-    const jobId = node.runPrompt(messages, {
-      temperature: thread.sampler.temperature,
-      topP: thread.sampler.topP,
-      topK: thread.sampler.topK,
-      maxTokens: thread.sampler.maxTokens,
-      seed: thread.sampler.seed,
-      stopSequences: thread.sampler.stopSequences,
-      repetitionPenalty: thread.sampler.repetitionPenalty,
-      jsonMode: thread.jsonMode,
-    });
-    if (!jobId) return;
-
-    let next = appendMessage(thread, { role: "user", content: text });
-    next = appendMessage(next, { role: "assistant", content: "", jobId });
-    next = {
-      ...next,
-      modelId: isCustom ? customRepo.trim() : modelId,
-    };
-    saveThread(next);
-    refreshThreads(next);
-    setPrompt("");
   }
 
   function handleSlash(text: string) {
@@ -239,24 +303,37 @@ export function InferenceConsole({
     }
   }
 
-  function regenerateFrom(userText: string) {
+  function regenerateFrom(userText: string, image?: string) {
     if (!thread) return;
-    const messages = buildRunMessages(thread, userText);
-    const jobId = node.runPrompt(messages, {
-      temperature: thread.sampler.temperature,
-      topP: thread.sampler.topP,
-      topK: thread.sampler.topK,
-      maxTokens: thread.sampler.maxTokens,
-      seed: thread.sampler.seed,
-      stopSequences: thread.sampler.stopSequences,
-      repetitionPenalty: thread.sampler.repetitionPenalty,
-      jsonMode: thread.jsonMode,
-    });
-    if (!jobId) return;
-    let next = appendMessage(thread, { role: "user", content: userText });
-    next = appendMessage(next, { role: "assistant", content: "", jobId });
-    saveThread(next);
-    refreshThreads(next);
+    void (async () => {
+      const ragContext =
+        ragEnabled ? await retrieveContext(roomId, userText) : undefined;
+      const messages = buildRunMessages(thread, userText, {
+        image,
+        ragContext,
+      });
+      const m = getModel(effectiveModelId);
+      let jobId: string | null = null;
+      if (m && isShardedModel(m)) {
+        jobId = node.runPrompt(messages, {
+          temperature: thread.sampler.temperature,
+          topP: thread.sampler.topP,
+          topK: thread.sampler.topK,
+          maxTokens: thread.sampler.maxTokens,
+          seed: thread.sampler.seed,
+          stopSequences: thread.sampler.stopSequences,
+          repetitionPenalty: thread.sampler.repetitionPenalty,
+          jsonMode: thread.jsonMode,
+        });
+      } else if (m) {
+        jobId = node.submit(m.id, messages) || null;
+      }
+      if (!jobId) return;
+      let next = appendMessage(thread, { role: "user", content: userText, image });
+      next = appendMessage(next, { role: "assistant", content: "", jobId });
+      saveThread(next);
+      refreshThreads(next);
+    })();
   }
 
   function startEdit(messageId: string, content: string) {
@@ -478,19 +555,67 @@ export function InferenceConsole({
             />
           )}
 
+          {(isVisionModel(model) || attachImage) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (typeof reader.result === "string") {
+                        setAttachImage(reader.result);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+                <span className="inline-flex h-9 items-center rounded-xl border border-border bg-canvas px-3 text-xs text-ink hover:border-accent">
+                  Attach image
+                </span>
+              </label>
+              {attachImage && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview */}
+                  <img
+                    src={attachImage}
+                    alt="Attached"
+                    className="h-12 w-12 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="text-xs text-ink-subtle hover:text-danger"
+                    onClick={() => setAttachImage(null)}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
               }}
               rows={2}
-              placeholder="Ask the grid… (⌘/Ctrl+Enter · /model /clear /stop)"
+              placeholder={
+                isVisionModel(model)
+                  ? "Ask about the image… (attach above · ⌘/Ctrl+Enter)"
+                  : "Ask the grid… (⌘/Ctrl+Enter · /model /clear /stop)"
+              }
               className="flex-1 resize-none rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
-            <Button onClick={() => submit()} disabled={!canSend}>
-              Send
+            <Button onClick={() => void submit()} disabled={!canSend || submitting}>
+              {submitting ? "…" : "Send"}
             </Button>
           </div>
         </div>
@@ -500,10 +625,15 @@ export function InferenceConsole({
             thread.messages.map((m) => {
               if (m.role === "system") return null;
               const pipe = snapshot.pipelines.find((p) => p.planId === m.jobId);
+              const task = snapshot.tasks.find((t) => t.id === m.jobId);
               const streaming =
                 m.role === "assistant" &&
-                !!pipe &&
-                (pipe.status === "running" || pipe.status === "queued");
+                ((!!pipe &&
+                  (pipe.status === "running" || pipe.status === "queued")) ||
+                  (!!task &&
+                    (task.status === "running" ||
+                      task.status === "claimed" ||
+                      task.status === "open")));
               const display =
                 m.role === "assistant" && thread.jsonMode && !streaming
                   ? formatMaybeJson(m.content)
@@ -536,11 +666,11 @@ export function InferenceConsole({
                           type="button"
                           className="text-[11px] text-ink-subtle hover:text-ink"
                           onClick={() => {
-                            const { thread: trimmed, userText } =
+                            const { thread: trimmed, userText, userImage } =
                               truncateBeforeMessage(thread!, m.id);
                             if (!userText) return;
                             refreshThreads(trimmed);
-                            regenerateFrom(userText);
+                            regenerateFrom(userText, userImage);
                           }}
                         >
                           Regenerate
@@ -583,9 +713,19 @@ export function InferenceConsole({
                       </span>
                     )
                   ) : (
-                    <p className="whitespace-pre-wrap text-sm text-ink">
-                      {m.content}
-                    </p>
+                    <>
+                      {m.image && (
+                        // eslint-disable-next-line @next/next/no-img-element -- chat data URL
+                        <img
+                          src={m.image}
+                          alt=""
+                          className="mb-2 max-h-40 rounded-lg border border-border object-contain"
+                        />
+                      )}
+                      <p className="whitespace-pre-wrap text-sm text-ink">
+                        {m.content}
+                      </p>
+                    </>
                   )}
                 </div>
               );

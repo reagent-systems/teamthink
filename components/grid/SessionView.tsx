@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DocumentPanel } from "@/components/rag/DocumentPanel";
 import { CapabilityPanel } from "@/components/grid/CapabilityPanel";
 import { InferenceConsole } from "@/components/grid/InferenceConsole";
 import { InviteBar } from "@/components/grid/InviteBar";
@@ -16,6 +17,7 @@ export function SessionView({ roomId }: { roomId: string }) {
   const { node, snapshot } = useGridNode(roomId);
   const [pickModelId, setPickModelId] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
+  const [ragEnabled, setRagEnabled] = useState(false);
 
   function selectModel(id: string, hfRepo: string) {
     setPickModelId(id);
@@ -38,6 +40,11 @@ export function SessionView({ roomId }: { roomId: string }) {
             selectedId={pickModelId ?? snapshot.provisioned?.modelId ?? null}
             onSelect={selectModel}
           />
+          <DocumentPanel
+            roomId={roomId}
+            ragEnabled={ragEnabled}
+            onRagEnabledChange={setRagEnabled}
+          />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>
@@ -50,6 +57,7 @@ export function SessionView({ roomId }: { roomId: string }) {
             pickModelId={pickModelId}
             registryVersion={registryVersion}
             onManualModelChange={() => setPickModelId(null)}
+            ragEnabled={ragEnabled}
           />
         </div>
       </div>

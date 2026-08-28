@@ -1,5 +1,31 @@
 # TeamThink Desktop Releases
 
+## v0.5.0 — Vision chat, embeddings, document RAG
+
+Multimodal prompts, on-device embeddings, and offline document retrieval for the mesh.
+
+### What’s new in 0.5.0
+
+#### 17. Embeddings engine
+
+You need vectors for semantic search. MiniLM L6 runs in the inference worker with
+mean-pooled, normalized outputs suitable for RAG and OpenAI-shaped `/v1/embeddings`
+clients.
+
+#### 18. Vision & multimodal chat
+
+You want to ask about a photo. Pick **SmolVLM 256M (vision)**, attach an image,
+and send — the grid routes through task-based Transformers.js inference with
+image data in the conversation.
+
+#### 20. Document RAG (offline-capable)
+
+You have notes or docs to ground answers. Upload `.txt`/`.md` or paste text in the
+**Documents** panel, enable **RAG on send**, and retrieved chunks with `[1]`/`[2]`
+citations are injected into the system prompt.
+
+---
+
 ## v0.4.0 — Phase 1 model hub (HF browser + import)
 
 Search Hugging Face, validate repos, and add sharded grid models from the session UI.
