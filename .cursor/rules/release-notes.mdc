@@ -1,5 +1,5 @@
 ---
-description: Format major/minor release notes as simplified technical English use-case scenarios
+description: Format major/minor release notes as use-case scenarios; keep release art on-brand with public/og.jpg
 globs:
 alwaysApply: false
 ---
