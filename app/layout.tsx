@@ -16,17 +16,7 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    url: siteUrl,
-    siteName: "TeamThink",
-    images: [
-      {
-        url: "/og.jpg",
-        width: 1200,
-        height: 630,
-        alt: "TeamThink — Serverless WebGPU Inference Grid",
-        type: "image/jpeg",
-      },
-    ],
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "TeamThink" }],
     type: "website",
   },
   twitter: {
@@ -48,9 +38,18 @@ export default function RootLayout({
       lang="en"
       className={`${bodySans.variable} ${displaySerif.variable} ${mono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#6366f1" />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Analytics />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,
+          }}
+        />
       </body>
     </html>
   );

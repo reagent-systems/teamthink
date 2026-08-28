@@ -53,6 +53,8 @@ export interface ChatThread {
   jsonMode: boolean;
   jsonSchema: string;
   modelId: string | null;
+  /** Inject retrieved document chunks into prompts when true. */
+  ragEnabled: boolean;
   createdAt: number;
   updatedAt: number;
 }

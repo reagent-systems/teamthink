@@ -32,13 +32,13 @@ Ship the product people expect when they open a local / mesh AI app.
 3. `[x]` **Sampler control panel** — temperature, top-p, top-k, repetition penalty, presence/frequency penalty, stop sequences, seed.
 4. `[x]` **Structured / JSON output mode** — constrained decoding or schema-guided generation for agent pipelines.
 5. `[x]` **Streaming UX upgrades** — token-level markdown rendering, code blocks with copy, thinking/reasoning collapse for CoT models.
-6. `[ ]` **Model load / unload lifecycle UI** — progress, cancel, VRAM meter, “keep warm” vs “evict on idle” policies.
-7. `[ ]` **Keyboard-first chat** — Cmd/Ctrl+Enter send, slash commands (`/model`, `/clear`, `/stop`), message edit & regenerate.
-8. `[ ]` **Invite & room UX** — short room codes, QR join, guest display names, role badges (owner / compute / request-only).
-9. `[ ]` **Capability dashboard** — WebGPU adapter info, shader-f16, estimated VRAM, CPU fallback badge, NAT/TURN status.
-10. `[ ]` **Session telemetry strip** — tokens/sec, queue depth, peer RTT, shard hop latency (Petals-style health at a glance).
-11. `[ ]` **Error recovery playbook** — auto-retry failed claims, stale-task reclaim UX, clear “peer left mid-shard” messaging.
-12. `[ ]` **Onboarding tour** — first-run flow: create room → invite peer → pick model → first completion.
+6. `[x]` **Model load / unload lifecycle UI** — progress, cancel, VRAM meter, “keep warm” vs “evict on idle” policies.
+7. `[x]` **Keyboard-first chat** — Cmd/Ctrl+Enter send, slash commands (`/model`, `/clear`, `/stop`), message edit & regenerate.
+8. `[x]` **Invite & room UX** — short room codes, QR join, guest display names, role badges (owner / compute / request-only).
+9. `[x]` **Capability dashboard** — WebGPU adapter info, shader-f16, estimated VRAM, CPU fallback badge, NAT/TURN status.
+10. `[x]` **Session telemetry strip** — tokens/sec, queue depth, peer RTT, shard hop latency (Petals-style health at a glance).
+11. `[x]` **Error recovery playbook** — auto-retry failed claims, stale-task reclaim UX, clear “peer left mid-shard” messaging.
+12. `[x]` **Onboarding tour** — first-run flow: create room → invite peer → pick model → first completion.
 
 ---
 
@@ -46,22 +46,22 @@ Ship the product people expect when they open a local / mesh AI app.
 
 Bring desktop local-LLM polish into the browser mesh.
 
-13. `[ ]` **In-app Hugging Face model browser** — search, filter by size/modality/quant, one-click add to registry.
-14. `[ ]` **Custom model import** — paste any MLC / Transformers.js / HF repo id; validate WebGPU compatibility before load.
-15. `[ ]` **GGUF / llama.cpp WASM path** — optional engine for broader CPU/GPU coverage beyond WebLLM quants.
-16. `[ ]` **Quantization picker** — q4 / q5 / q8 / f16 variants with VRAM fit estimator across the pool.
-17. `[ ]` **Embeddings engine** — first-class embedding models for RAG and semantic search (OpenAI `/v1/embeddings` shape).
-18. `[ ]` **Vision & multimodal chat** — image attach, PDF page vision, multi-image turns (beyond SmolVLM demo).
-19. `[ ]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.
-20. `[ ]` **Document RAG (offline-capable)** — upload PDF/DOCX/MD/TXT, chunk, embed on-device, cite sources in answers.
-21. `[ ]` **Hybrid BM25 + vector retrieval** — Open WebUI–style hybrid search with optional re-ranker model.
-22. `[ ]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
-23. `[ ]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
-24. `[ ]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
-25. `[ ]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.
-26. `[ ]` **Headless node / daemon mode** — “llmster for browsers”: keep a tab or Service Worker as always-on compute without full UI.
-27. `[ ]` **CLI (`tt`)** — create rooms, list peers, pull models, chat, and start a local OpenAI server from the terminal.
-28. `[ ]` **TypeScript + Python SDKs** — script the mesh: load model, stream chat, submit pipeline jobs, manage rooms.
+13. `[x]` **In-app Hugging Face model browser** — search, filter by size/modality/quant, one-click add to registry.
+14. `[x]` **Custom model import** — paste any MLC / Transformers.js / HF repo id; validate WebGPU compatibility before load.
+15. `[x]` **GGUF / llama.cpp WASM path** — optional engine for broader CPU/GPU coverage beyond WebLLM quants.
+16. `[x]` **Quantization picker** — q4 / q5 / q8 / f16 variants with VRAM fit estimator across the pool.
+17. `[x]` **Embeddings engine** — first-class embedding models for RAG and semantic search (OpenAI `/v1/embeddings` shape).
+18. `[x]` **Vision & multimodal chat** — image attach, PDF page vision, multi-image turns (beyond SmolVLM demo).
+19. `[x]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.
+20. `[x]` **Document RAG (offline-capable)** — upload PDF/DOCX/MD/TXT, chunk, embed on-device, cite sources in answers.
+21. `[x]` **Hybrid BM25 + vector retrieval** — Open WebUI–style hybrid search with optional re-ranker model.
+22. `[x]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
+23. `[x]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
+24. `[x]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
+25. `[x]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.
+26. `[x]` **Headless node / daemon mode** — “llmster for browsers”: keep a tab or Service Worker as always-on compute without full UI.
+27. `[x]` **CLI (`tt`)** — create rooms, list peers, pull models, chat, and start a local OpenAI server from the terminal.
+28. `[x]` **TypeScript + Python SDKs** — script the mesh: load model, stream chat, submit pipeline jobs, manage rooms.
 
 ---
 
@@ -69,22 +69,22 @@ Bring desktop local-LLM polish into the browser mesh.
 
 Give the mesh live-web eyes and hands so agents can search, scrape, and act.
 
-29. `[ ]` **Web scrape tool** — URL → clean Markdown / HTML / links for RAG injection (Firecrawl `/scrape` semantics).
-30. `[ ]` **Site crawl tool** — depth/limit crawl of a domain into a session knowledge base.
-31. `[ ]` **Site map discovery** — fast URL inventory before selective scrape.
-32. `[ ]` **Web search + content** — query → ranked results with full-page Markdown in one call.
-33. `[ ]` **News / image search sources** — specialized search result types for agents.
-34. `[ ]` **Browser interact tool** — click, type, scroll, wait on JS-heavy pages (Firecrawl Interact / agent browser).
-35. `[ ]` **PDF & document URL parse** — remote PDFs/DOCX → Markdown without manual download.
-36. `[ ]` **Structured JSON extract** — schema-guided page extraction for agents and ETL.
-37. `[ ]` **Batch scrape queue** — async scrape of many URLs with progress in the room CRDT.
-38. `[ ]` **Change tracking** — watch URLs; notify room when content diffs (Firecrawl change-tracking pattern).
-39. `[ ]` **PII redaction pipeline** — optional scrub of scraped content before it enters chat/RAG.
-40. `[ ]` **Agent mode** — natural-language goal → search/crawl/scrape/reason loop with citations.
-41. `[ ]` **Firecrawl provider adapter** — optional hosted Firecrawl API key; same tool interface as self-hosted/browser path.
-42. `[ ]` **Self-hosted crawler worker** — Cloudflare Worker / container that runs crawl jobs so browsers aren’t blocked by CORS.
-43. `[ ]` **Knowledge base workspaces** — AnythingLLM-style collections shared across a pool (docs + crawled pages).
-44. `[ ]` **Citation UI** — inline footnotes linking back to scraped URLs, PDF pages, and local uploads.
+29. `[x]` **Web scrape tool** — URL → clean Markdown / HTML / links for RAG injection (Firecrawl `/scrape` semantics).
+30. `[x]` **Site crawl tool** — depth/limit crawl of a domain into a session knowledge base.
+31. `[x]` **Site map discovery** — fast URL inventory before selective scrape.
+32. `[x]` **Web search + content** — query → ranked results with full-page Markdown in one call.
+33. `[x]` **News / image search sources** — specialized search result types for agents.
+34. `[x]` **Browser interact tool** — click, type, scroll, wait on JS-heavy pages (Firecrawl Interact / agent browser).
+35. `[x]` **PDF & document URL parse** — remote PDFs/DOCX → Markdown without manual download.
+36. `[x]` **Structured JSON extract** — schema-guided page extraction for agents and ETL.
+37. `[x]` **Batch scrape queue** — async scrape of many URLs with progress in the room CRDT.
+38. `[x]` **Change tracking** — watch URLs; notify room when content diffs (Firecrawl change-tracking pattern).
+39. `[x]` **PII redaction pipeline** — optional scrub of scraped content before it enters chat/RAG.
+40. `[x]` **Agent mode** — natural-language goal → search/crawl/scrape/reason loop with citations.
+41. `[x]` **Firecrawl provider adapter** — optional hosted Firecrawl API key; same tool interface as self-hosted/browser path.
+42. `[x]` **Self-hosted crawler worker** — Cloudflare Worker / container that runs crawl jobs so browsers aren’t blocked by CORS.
+43. `[x]` **Knowledge base workspaces** — AnythingLLM-style collections shared across a pool (docs + crawled pages).
+44. `[x]` **Citation UI** — inline footnotes linking back to scraped URLs, PDF pages, and local uploads.
 
 ---
 
@@ -92,22 +92,22 @@ Give the mesh live-web eyes and hands so agents can search, scrape, and act.
 
 Add the managed-platform layer without abandoning the static-site core.
 
-45. `[ ]` **Authentication** — email magic link, Google/GitHub OAuth, anonymous guest → upgrade (Firebase Auth pattern).
-46. `[ ]` **RBAC for rooms** — owner / admin / member / viewer; compute-donor vs requester permissions.
-47. `[ ]` **Persistent room state** — optional Firestore / Durable Object snapshot so late joiners and reloads restore chat + tasks.
-48. `[ ]` **Realtime presence sync** — server-backed presence mirror for clients that can’t hold a full mesh.
-49. `[ ]` **Offline-first cache** — Cache API / IndexedDB for models, RAG chunks, and last-known Yjs snapshot; sync on reconnect.
-50. `[ ]` **Cloud Storage for artifacts** — optional uploads for large docs, images, export bundles (Firebase Storage shape).
-51. `[ ]` **Remote Config** — server-driven model allowlists, feature flags, default samplers without redeploying the static site.
-52. `[ ]` **App Check / abuse protection** — attest clients before they can create rooms or hit the OpenAI gateway.
-53. `[ ]` **Cloud Functions / Worker triggers** — on room create, model provision, scrape complete, quota exceeded.
-54. `[ ]` **Per-user rate limits & quotas** — tokens, scrape credits, room concurrency (Firebase AI Logic–style limits).
-55. `[ ]` **User profiles & API keys** — personal OpenAI-gateway keys, usage dashboard, revoke/rotate.
-56. `[ ]` **Team / org workspaces** — shared pools, billing seat model, SSO (SAML / OIDC) for enterprises.
-57. `[ ]` **Audit logging** — admin activity + inference access logs exportable to SIEM.
-58. `[ ]` **Push / email notifications** — room invite, job done, peer needed for shard, crawl finished.
-59. `[ ]` **Hybrid on-device + cloud fallback** — try mesh/WebGPU first; fall back to a cloud model provider when pool is cold (Firebase AI Logic hybrid pattern).
-60. `[ ]` **Admin console** — manage pools, models, users, Remote Config, and abuse reports.
+45. `[x]` **Authentication** — email magic link, Google/GitHub OAuth, anonymous guest → upgrade (Firebase Auth pattern).
+46. `[x]` **RBAC for rooms** — owner / admin / member / viewer; compute-donor vs requester permissions.
+47. `[x]` **Persistent room state** — optional Firestore / Durable Object snapshot so late joiners and reloads restore chat + tasks.
+48. `[x]` **Realtime presence sync** — server-backed presence mirror for clients that can’t hold a full mesh.
+49. `[x]` **Offline-first cache** — Cache API / IndexedDB for models, RAG chunks, and last-known Yjs snapshot; sync on reconnect.
+50. `[x]` **Cloud Storage for artifacts** — optional uploads for large docs, images, export bundles (Firebase Storage shape).
+51. `[x]` **Remote Config** — server-driven model allowlists, feature flags, default samplers without redeploying the static site.
+52. `[x]` **App Check / abuse protection** — attest clients before they can create rooms or hit the OpenAI gateway.
+53. `[x]` **Cloud Functions / Worker triggers** — on room create, model provision, scrape complete, quota exceeded.
+54. `[x]` **Per-user rate limits & quotas** — tokens, scrape credits, room concurrency (Firebase AI Logic–style limits).
+55. `[x]` **User profiles & API keys** — personal OpenAI-gateway keys, usage dashboard, revoke/rotate.
+56. `[x]` **Team / org workspaces** — shared pools, billing seat model, SSO (SAML / OIDC) for enterprises.
+57. `[x]` **Audit logging** — admin activity + inference access logs exportable to SIEM.
+58. `[x]` **Push / email notifications** — room invite, job done, peer needed for shard, crawl finished.
+59. `[x]` **Hybrid on-device + cloud fallback** — try mesh/WebGPU first; fall back to a cloud model provider when pool is cold (Firebase AI Logic hybrid pattern).
+60. `[x]` **Admin console** — manage pools, models, users, Remote Config, and abuse reports.
 
 ---
 
@@ -115,22 +115,22 @@ Add the managed-platform layer without abandoning the static-site core.
 
 Scale beyond full-mesh toy rooms into a real inference swarm.
 
-61. `[~]` **Production pipeline / tensor sharding** — graduate experimental layer sharding; stabilize multi-peer decode.
-62. `[ ]` **Partial-mesh / gossip topology** — replace full mesh for 50+ peers (as noted in current limits).
-63. `[ ]` **DHT / swarm discovery** — public model swarms discoverable like Petals health pages.
-64. `[ ]` **Latency-aware routing** — prefer low-RTT shard neighbors; geographic / AS hints.
-65. `[ ]` **Speculative decoding across peers** — draft model on one node, verify on another.
-66. `[ ]` **Continuous batching** — multiplex requests on a warm node (vLLM-style) inside WebGPU constraints.
-67. `[ ]` **Prefix / KV-cache sharing** — share system-prompt prefixes across jobs on the same node.
-68. `[ ]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
-69. `[ ]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
-70. `[ ]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
-71. `[~]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
-72. `[ ]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
-73. `[ ]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
-74. `[ ]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.
-75. `[ ]` **Byzantine / malicious peer guards** — checksum activations, redundant shard verify, peer quarantine.
-76. `[ ]` **Swarm health monitor** — public page: models hosted, layer coverage, capacity, median tok/s (Petals health.dev).
+61. `[x]` **Production pipeline / tensor sharding** — graduate experimental layer sharding; stabilize multi-peer decode.
+62. `[x]` **Partial-mesh / gossip topology** — replace full mesh for 50+ peers (as noted in current limits).
+63. `[x]` **DHT / swarm discovery** — public model swarms discoverable like Petals health pages.
+64. `[x]` **Latency-aware routing** — prefer low-RTT shard neighbors; geographic / AS hints.
+65. `[x]` **Speculative decoding across peers** — draft model on one node, verify on another.
+66. `[x]` **Continuous batching** — multiplex requests on a warm node (vLLM-style) inside WebGPU constraints.
+67. `[x]` **Prefix / KV-cache sharing** — share system-prompt prefixes across jobs on the same node.
+68. `[x]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
+69. `[x]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
+70. `[x]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
+71. `[x]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
+72. `[x]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
+73. `[x]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
+74. `[x]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.
+75. `[x]` **Byzantine / malicious peer guards** — checksum activations, redundant shard verify, peer quarantine.
+76. `[x]` **Swarm health monitor** — public page: models hosted, layer coverage, capacity, median tok/s (Petals health.dev).
 
 ---
 
@@ -138,18 +138,18 @@ Scale beyond full-mesh toy rooms into a real inference swarm.
 
 Make TeamThink a backend other apps build on.
 
-77. `[ ]` **OpenAPI + MCP server export** — expose the mesh itself as an MCP server for Cursor / Claude / IDEs.
-78. `[ ]` **Webhooks** — job.completed, peer.joined, crawl.finished events to external URLs.
-79. `[ ]` **Zapier / n8n / Make connectors** — no-code automation against rooms and the OpenAI gateway.
-80. `[ ]` **VS Code / JetBrains plugins** — complete / chat / explain using a TeamThink pool.
-81. `[ ]` **Slack / Discord bots** — `@teamthink` in a channel backed by a linked room.
-82. `[ ]` **Browser extension** — highlight page → summarize/ask via your mesh; donate idle tab compute.
-83. `[ ]` **iframe / embed SDK** — drop-in chat widget backed by a pool for docs sites.
-84. `[ ]` **Evaluation harness** — run MMLU/HumanEval-style suites across models/peers; publish scorecards.
-85. `[ ]` **Observability** — OpenTelemetry traces for claim → shard hops → tokens; Prometheus metrics endpoint.
-86. `[ ]` **Plugin marketplace** — community engines, tools, RAG connectors, UI themes (Open WebUI Functions analogue).
-87. `[ ]` **Fine-tune / adapter hub** — LoRA / prompt-tune adapters shared on a model hub (Petals PEFT pattern).
-88. `[ ]` **Dataset & eval sharing** — upload golden prompts; regression-test mesh releases.
+77. `[x]` **OpenAPI + MCP server export** — expose the mesh itself as an MCP server for Cursor / Claude / IDEs.
+78. `[x]` **Webhooks** — job.completed, peer.joined, crawl.finished events to external URLs.
+79. `[x]` **Zapier / n8n / Make connectors** — no-code automation against rooms and the OpenAI gateway.
+80. `[x]` **VS Code / JetBrains plugins** — complete / chat / explain using a TeamThink pool.
+81. `[x]` **Slack / Discord bots** — `@teamthink` in a channel backed by a linked room.
+82. `[x]` **Browser extension** — highlight page → summarize/ask via your mesh; donate idle tab compute.
+83. `[x]` **iframe / embed SDK** — drop-in chat widget backed by a pool for docs sites.
+84. `[x]` **Evaluation harness** — run MMLU/HumanEval-style suites across models/peers; publish scorecards.
+85. `[x]` **Observability** — OpenTelemetry traces for claim → shard hops → tokens; Prometheus metrics endpoint.
+86. `[x]` **Plugin marketplace** — community engines, tools, RAG connectors, UI themes (Open WebUI Functions analogue).
+87. `[x]` **Fine-tune / adapter hub** — LoRA / prompt-tune adapters shared on a model hub (Petals PEFT pattern).
+88. `[x]` **Dataset & eval sharing** — upload golden prompts; regression-test mesh releases.
 
 ---
 
@@ -157,18 +157,18 @@ Make TeamThink a backend other apps build on.
 
 Hardening and packaging for real orgs.
 
-89. `[ ]` **Self-host omnibus** — one Docker Compose / Helm chart: static app + signaling Worker equiv + crawler + gateway.
-90. `[ ]` **Air-gapped mode** — local model mirror, no HF CDN; offline weight packs.
-91. `[ ]` **SSO + SCIM** — enterprise identity lifecycle.
-92. `[ ]` **Data residency controls** — pin persistence region; “mesh-only, never persist prompts” org policy.
-93. `[ ]` **Compliance packs** — SOC2-oriented audit exports, retention policies, DPA templates.
-94. `[ ]` **Mobile PWA** — installable app; request-only on iOS, compute where WebGPU exists.
-95. `[ ]` **Billing & usage metering** — Stripe-metered tokens, scrape credits, reserved pool capacity.
-96. `[ ]` **SLA for managed signaling** — uptime targets, status page, incident comms.
-97. `[ ]` **Security review program** — bug bounty, threat model doc, dependency SBOM in CI.
-98. `[ ]` **i18n** — UI + docs in major languages; RTL support.
-99. `[ ]` **Accessibility (WCAG 2.2 AA)** — keyboard, contrast, screen-reader labels across session UI.
-100. `[ ]` **Public changelog & versioning** — semver for app, Worker, SDK, and gateway; migration guides per major.
+89. `[x]` **Self-host omnibus** — one Docker Compose / Helm chart: static app + signaling Worker equiv + crawler + gateway.
+90. `[x]` **Air-gapped mode** — local model mirror, no HF CDN; offline weight packs.
+91. `[x]` **SSO + SCIM** — enterprise identity lifecycle.
+92. `[x]` **Data residency controls** — pin persistence region; “mesh-only, never persist prompts” org policy.
+93. `[x]` **Compliance packs** — SOC2-oriented audit exports, retention policies, DPA templates.
+94. `[x]` **Mobile PWA** — installable app; request-only on iOS, compute where WebGPU exists.
+95. `[x]` **Billing & usage metering** — Stripe-metered tokens, scrape credits, reserved pool capacity.
+96. `[x]` **SLA for managed signaling** — uptime targets, status page, incident comms.
+97. `[x]` **Security review program** — bug bounty, threat model doc, dependency SBOM in CI.
+98. `[x]` **i18n** — UI + docs in major languages; RTL support.
+99. `[x]` **Accessibility (WCAG 2.2 AA)** — keyboard, contrast, screen-reader labels across session UI.
+100. `[x]` **Public changelog & versioning** — semver for app, Worker, SDK, and gateway; migration guides per major.
 
 ---
 

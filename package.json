@@ -1,6 +1,6 @@
 {
   "name": "teamthink",
-  "version": "0.2.0",
+  "version": "0.15.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -11,7 +11,8 @@
     "desktop:dev": "pnpm --dir desktop exec electron .",
     "desktop:pack": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop dist",
     "desktop:dir": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop pack",
-    "ralph": "bash scripts/ralph.sh"
+    "ralph": "bash scripts/ralph.sh",
+    "tt": "node tools/tt/tt.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -19,6 +20,7 @@
     "@vercel/analytics": "^2.0.1",
     "next": "16.2.9",
     "onnxruntime-web": "^1.26.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "yjs": "^13.6.31"
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^20.19.43",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@webgpu/types": "^0.1.70",

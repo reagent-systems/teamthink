@@ -19,6 +19,7 @@ import {
 import {
   appendMessage,
   buildRunMessages,
+  clearThreadMessages,
   createThread,
   deleteCustomPreset,
   ensureActiveThread,
@@ -28,6 +29,7 @@ import {
   saveCustomPreset,
   saveThread,
   setActiveThreadId,
+  truncateBeforeMessage,
   updateAssistantByJob,
 } from "@/lib/chat/storage";
 import {
@@ -35,13 +37,27 @@ import {
   type ChatThread,
   type SamplerSettings,
 } from "@/lib/chat/types";
-import { getModel, SHARDED_MODELS } from "@/lib/config";
+import { getModel } from "@/lib/config";
+import {
+  isShardedModel,
+  isVisionModel,
+  isWasmModel,
+  listConsoleModels,
+} from "@/lib/models/console-models";
+import { AudioBar } from "@/components/audio/AudioBar";
+import { speakText } from "@/lib/audio/record";
+import { retrieveContext, type RagSearchMode } from "@/lib/rag/store";
+import type { McpToolRoute } from "@/lib/mcp/client";
+import type { ToolDefinition } from "@/lib/tools/types";
+import { getCitations } from "@/lib/scrape/citations";
+import { runAgentLoop } from "@/lib/tools/agent-loop";
+import {
+  getHybridSettings,
+  hybridChatCompletion,
+} from "@/lib/platform/hybrid";
+import { consumeQuota } from "@/lib/platform/client";
 import type { GridNode } from "@/lib/grid/scheduler";
-import type {
-  GridSnapshot,
-  PipelineStatus,
-  ProvisionedView,
-} from "@/lib/grid/types";
+import type { GridSnapshot } from "@/lib/grid/types";
 
 const CUSTOM = "__custom__";
 
@@ -49,17 +65,57 @@ export function InferenceConsole({
   node,
   snapshot,
   roomId,
+  pickModelId,
+  registryVersion = 0,
+  onManualModelChange,
+  ragEnabled = false,
+  ragSearchMode = "hybrid",
+  toolsEnabled = false,
+  mcpEnabled = false,
+  mcpTools = [],
+  mcpRoutes,
+  webEnabled = false,
+  agentMode = false,
+  ttsEnabled = false,
+  onTtsEnabledChange,
+  canSubmit = true,
+  meshCold = false,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
   roomId: string;
+  pickModelId?: string | null;
+  registryVersion?: number;
+  onManualModelChange?: () => void;
+  ragEnabled?: boolean;
+  ragSearchMode?: RagSearchMode;
+  toolsEnabled?: boolean;
+  mcpEnabled?: boolean;
+  mcpTools?: ToolDefinition[];
+  mcpRoutes?: Map<string, McpToolRoute>;
+  webEnabled?: boolean;
+  agentMode?: boolean;
+  ttsEnabled?: boolean;
+  onTtsEnabledChange?: (v: boolean) => void;
+  canSubmit?: boolean;
+  meshCold?: boolean;
 }) {
+  const agentToolsOn =
+    toolsEnabled || mcpEnabled || webEnabled || agentMode;
+  const extraTools = mcpEnabled ? mcpTools : [];
+  const gridModels = useMemo(
+    () => listConsoleModels(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when browser adds models
+    [registryVersion],
+  );
+  const [attachImage, setAttachImage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [modelId, setModelId] = useState(() => {
-    if (typeof window === "undefined") return SHARDED_MODELS[0]?.id ?? CUSTOM;
+    if (typeof window === "undefined") return gridModels[0]?.id ?? CUSTOM;
     const active = ensureActiveThread(roomId);
     return active.modelId && getModel(active.modelId)
       ? active.modelId
-      : (SHARDED_MODELS[0]?.id ?? CUSTOM);
+      : (gridModels[0]?.id ?? CUSTOM);
   });
   const [customRepo, setCustomRepo] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -71,18 +127,53 @@ export function InferenceConsole({
   );
   const [showArchived, setShowArchived] = useState(false);
   const [showSampler, setShowSampler] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [presets, setPresets] = useState(() =>
     typeof window === "undefined" ? [] : listPresets(),
   );
 
+  const citations = getCitations(roomId);
+
   const isCustom = modelId === CUSTOM;
-  const model = isCustom ? null : getModel(modelId);
+  const effectiveModelId =
+    pickModelId && getModel(pickModelId) ? pickModelId : modelId;
+  const model = isCustom ? null : getModel(effectiveModelId);
   const provisioned = snapshot.provisioned;
   const threadRef = useRef<ChatThread | null>(thread);
+  const spokenRef = useRef<string>("");
 
   useEffect(() => {
     threadRef.current = thread;
   }, [thread]);
+
+  const lastAssistantText = useMemo(() => {
+    if (!thread) return "";
+    for (let i = thread.messages.length - 1; i >= 0; i--) {
+      const m = thread.messages[i];
+      if (m?.role === "assistant" && m.content.trim()) return m.content;
+    }
+    return "";
+  }, [thread]);
+
+  useEffect(() => {
+    if (!ttsEnabled || !lastAssistantText) return;
+    const pipe = snapshot.pipelines.find(
+      (p) =>
+        p.status === "done" &&
+        thread?.messages.some((m) => m.jobId === p.planId && m.role === "assistant"),
+    );
+    const task = snapshot.tasks.find(
+      (t) =>
+        t.status === "done" &&
+        thread?.messages.some((m) => m.jobId === t.id && m.role === "assistant"),
+    );
+    if (!pipe && !task) return;
+    const key = lastAssistantText.slice(0, 80);
+    if (spokenRef.current === key) return;
+    spokenRef.current = key;
+    speakText(lastAssistantText);
+  }, [ttsEnabled, lastAssistantText, snapshot.pipelines, snapshot.tasks, thread]);
 
   const webgpuPeers = useMemo(
     () => snapshot.peers.filter((p) => p.caps.webgpu).length,
@@ -114,6 +205,36 @@ export function InferenceConsole({
       setThreads(listThreads(roomId));
     }
   }, [snapshot.pipelines, roomId]);
+
+  // Task-based jobs (local / vision models) stream via snapshot.tasks + streams.
+  useEffect(() => {
+    const current = threadRef.current;
+    if (!current) return;
+    let next = current;
+    let dirty = false;
+    for (const task of snapshot.tasks) {
+      if (task.requester !== snapshot.selfId) continue;
+      const assistant = next.messages.find(
+        (m) => m.role === "assistant" && m.jobId === task.id,
+      );
+      if (!assistant) continue;
+      const stream = snapshot.streams[task.id] ?? "";
+      let text = stream;
+      if (task.status === "error") text = task.error ?? "failed";
+      else if (task.status === "done") text = task.result ?? stream;
+      if (next.jsonMode && task.status === "done" && text) {
+        text = formatMaybeJson(text);
+      }
+      if (assistant.content !== text) {
+        next = updateAssistantByJob(next, task.id, text);
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      setThread(next);
+      setThreads(listThreads(roomId));
+    }
+  }, [snapshot.tasks, snapshot.streams, snapshot.selfId, roomId]);
 
   const canHost = !!snapshot.caps?.webgpu;
   const provisionedRef = useRef<string>("");
@@ -157,46 +278,202 @@ export function InferenceConsole({
     });
   }
 
-  function submit() {
-    if (!thread) return;
-    const text = prompt.trim();
+  async function submit(forcedText?: string) {
+    if (!thread || submitting || !canSubmit) return;
+    const text = (forcedText ?? prompt).trim();
     if (!text) return;
 
-    if (isCustom) {
-      const repo = customRepo.trim();
-      if (!repo) return;
-      if (provisionedRef.current !== `custom:${repo}`) loadCustom();
-    } else if (model?.hfRepo) {
-      void node.provision(model.id, model.hfRepo);
+    if (text.startsWith("/")) {
+      handleSlash(text);
+      setPrompt("");
+      return;
     }
 
-    const messages = buildRunMessages(thread, text);
-    const jobId = node.runPrompt(messages, {
-      temperature: thread.sampler.temperature,
-      topP: thread.sampler.topP,
-      topK: thread.sampler.topK,
-      maxTokens: thread.sampler.maxTokens,
-      seed: thread.sampler.seed,
-      stopSequences: thread.sampler.stopSequences,
-      repetitionPenalty: thread.sampler.repetitionPenalty,
-      jsonMode: thread.jsonMode,
-    });
-    if (!jobId) return;
+    setSubmitting(true);
+    try {
+      if (isCustom) {
+        const repo = customRepo.trim();
+        if (!repo) return;
+        if (provisionedRef.current !== `custom:${repo}`) loadCustom();
+      } else if (model?.hfRepo) {
+        void node.provision(model.id, model.hfRepo);
+      }
 
-    let next = appendMessage(thread, { role: "user", content: text });
-    next = appendMessage(next, { role: "assistant", content: "", jobId });
-    next = {
-      ...next,
-      modelId: isCustom ? customRepo.trim() : modelId,
-      updatedAt: Date.now(),
-    };
-    saveThread(next);
-    refreshThreads(next);
-    setPrompt("");
+      const ragContext =
+        ragEnabled && !isCustom
+          ? await retrieveContext(roomId, text, ragSearchMode)
+          : undefined;
+      const messages = buildRunMessages(thread, text, {
+        image: attachImage ?? undefined,
+        ragContext,
+      });
+
+      const sampler = {
+        temperature: thread.sampler.temperature,
+        topP: thread.sampler.topP,
+        topK: thread.sampler.topK,
+        maxTokens: thread.sampler.maxTokens,
+        seed: thread.sampler.seed,
+        stopSequences: thread.sampler.stopSequences,
+        repetitionPenalty: thread.sampler.repetitionPenalty,
+        jsonMode: thread.jsonMode,
+      };
+
+      const hybrid = getHybridSettings();
+      if (meshCold && hybrid.enabled && hybrid.apiKey.trim()) {
+        const reply = await hybridChatCompletion(
+          messages.map((m) => ({ role: m.role, content: String(m.content) })),
+          hybrid,
+        );
+        void consumeQuota({ tokens: reply.length }).catch(() => {});
+        let next = appendMessage(thread, {
+          role: "user",
+          content: text,
+          image: attachImage ?? undefined,
+        });
+        next = appendMessage(next, {
+          role: "assistant",
+          content: thread.jsonMode ? formatMaybeJson(reply) : reply,
+        });
+        saveThread(next);
+        refreshThreads(next);
+        setPrompt("");
+        setAttachImage(null);
+        return;
+      }
+
+      let jobId: string | null = null;
+      if (isCustom) {
+        jobId = null;
+      } else if (agentToolsOn && model) {
+        const result = await runAgentLoop(
+          node,
+          model.id,
+          messages,
+          sampler,
+          true,
+          {
+            roomId,
+            ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
+            mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
+          },
+          extraTools,
+          { webToolsEnabled: webEnabled, agentMode },
+        );
+        jobId = result?.jobId ?? null;
+      } else if (model && isShardedModel(model)) {
+        jobId = node.runPrompt(messages, sampler);
+      } else if (model) {
+        jobId = node.submit(model.id, messages) || null;
+      }
+      if (!jobId) return;
+
+      let next = appendMessage(thread, {
+        role: "user",
+        content: text,
+        image: attachImage ?? undefined,
+      });
+      next = appendMessage(next, { role: "assistant", content: "", jobId });
+      next = {
+        ...next,
+        modelId: isCustom ? customRepo.trim() : effectiveModelId,
+      };
+      saveThread(next);
+      refreshThreads(next);
+      setPrompt("");
+      setAttachImage(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleSlash(text: string) {
+    const [cmd, ...rest] = text.slice(1).trim().split(/\s+/);
+    const arg = rest.join(" ").trim();
+    switch (cmd.toLowerCase()) {
+      case "clear":
+        refreshThreads(clearThreadMessages(thread!));
+        break;
+      case "stop":
+        node.stopCurrentJob();
+        break;
+      case "model": {
+        const id = arg || gridModels[0]?.id;
+        if (!id) break;
+        if (id === CUSTOM || getModel(id)) {
+          setModelId(id);
+          patchThread({ modelId: id });
+          provisionedRef.current = "";
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  function regenerateFrom(userText: string, image?: string) {
+    if (!thread) return;
+    void (async () => {
+      const ragContext =
+        ragEnabled ? await retrieveContext(roomId, userText, ragSearchMode) : undefined;
+      const messages = buildRunMessages(thread, userText, {
+        image,
+        ragContext,
+      });
+      const m = getModel(effectiveModelId);
+      const sampler = {
+        temperature: thread.sampler.temperature,
+        topP: thread.sampler.topP,
+        topK: thread.sampler.topK,
+        maxTokens: thread.sampler.maxTokens,
+        seed: thread.sampler.seed,
+        stopSequences: thread.sampler.stopSequences,
+        repetitionPenalty: thread.sampler.repetitionPenalty,
+        jsonMode: thread.jsonMode,
+      };
+      let jobId: string | null = null;
+      if (agentToolsOn && m) {
+        const result = await runAgentLoop(node, m.id, messages, sampler, true, {
+          roomId,
+          ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
+          mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
+        }, extraTools, { webToolsEnabled: webEnabled, agentMode });
+        jobId = result?.jobId ?? null;
+      } else if (m && isShardedModel(m)) {
+        jobId = node.runPrompt(messages, sampler);
+      } else if (m) {
+        jobId = node.submit(m.id, messages) || null;
+      }
+      if (!jobId) return;
+      let next = appendMessage(thread, { role: "user", content: userText, image });
+      next = appendMessage(next, { role: "assistant", content: "", jobId });
+      saveThread(next);
+      refreshThreads(next);
+    })();
+  }
+
+  function startEdit(messageId: string, content: string) {
+    setEditingId(messageId);
+    setEditDraft(content);
+  }
+
+  function commitEdit(messageId: string) {
+    if (!thread) return;
+    const trimmed = editDraft.trim();
+    if (!trimmed) return;
+    const { thread: trimmedThread } = truncateBeforeMessage(thread, messageId);
+    setEditingId(null);
+    setEditDraft("");
+    refreshThreads(trimmedThread);
+    regenerateFrom(trimmed);
   }
 
   const canSend =
-    !!prompt.trim() && !!thread && (!isCustom || !!customRepo.trim());
+    canSubmit &&
+    !!prompt.trim() &&
+    !!thread &&
+    (!isCustom || !!customRepo.trim());
 
   function onExport(id: string, format: "json" | "md" | "html") {
     const t = threads.find((x) => x.id === id);
@@ -273,16 +550,18 @@ export function InferenceConsole({
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <select
-              value={modelId}
+              value={effectiveModelId}
               onChange={(e) => {
                 setModelId(e.target.value);
+                onManualModelChange?.();
                 patchThread({ modelId: e.target.value });
               }}
               className="h-10 rounded-xl border border-border bg-canvas px-3 text-sm text-ink outline-none focus:border-accent"
             >
-              {SHARDED_MODELS.map((m) => (
+              {gridModels.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
+                  {isWasmModel(m) ? " · WASM" : ""}
                 </option>
               ))}
               <option value={CUSTOM}>Custom HF repo…</option>
@@ -397,21 +676,76 @@ export function InferenceConsole({
             />
           )}
 
-          {provisioned && <ProvisionedStatus provisioned={provisioned} />}
+          {(isVisionModel(model) || attachImage) && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (typeof reader.result === "string") {
+                        setAttachImage(reader.result);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+                <span className="inline-flex h-9 items-center rounded-xl border border-border bg-canvas px-3 text-xs text-ink hover:border-accent">
+                  Attach image
+                </span>
+              </label>
+              {attachImage && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview */}
+                  <img
+                    src={attachImage}
+                    alt="Attached"
+                    className="h-12 w-12 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="text-xs text-ink-subtle hover:text-danger"
+                    onClick={() => setAttachImage(null)}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {onTtsEnabledChange && (
+            <AudioBar
+              onTranscript={(text) => setPrompt((p) => (p ? `${p} ${text}` : text))}
+              ttsEnabled={ttsEnabled}
+              onTtsEnabledChange={onTtsEnabledChange}
+              lastAssistantText={lastAssistantText}
+            />
+          )}
 
           <div className="flex gap-2">
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
               }}
               rows={2}
-              placeholder="Ask the grid something… (⌘/Ctrl + Enter)"
+              placeholder={
+                isVisionModel(model)
+                  ? "Ask about the image… (attach above · ⌘/Ctrl+Enter)"
+                  : "Ask the grid… (⌘/Ctrl+Enter · /model /clear /stop)"
+              }
               className="flex-1 resize-none rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
-            <Button onClick={submit} disabled={!canSend}>
-              Send
+            <Button onClick={() => void submit()} disabled={!canSend || submitting}>
+              {submitting ? "…" : "Send"}
             </Button>
           </div>
         </div>
@@ -421,10 +755,15 @@ export function InferenceConsole({
             thread.messages.map((m) => {
               if (m.role === "system") return null;
               const pipe = snapshot.pipelines.find((p) => p.planId === m.jobId);
+              const task = snapshot.tasks.find((t) => t.id === m.jobId);
               const streaming =
                 m.role === "assistant" &&
-                !!pipe &&
-                (pipe.status === "running" || pipe.status === "queued");
+                ((!!pipe &&
+                  (pipe.status === "running" || pipe.status === "queued")) ||
+                  (!!task &&
+                    (task.status === "running" ||
+                      task.status === "claimed" ||
+                      task.status === "open")));
               const display =
                 m.role === "assistant" && thread.jsonMode && !streaming
                   ? formatMaybeJson(m.content)
@@ -442,24 +781,85 @@ export function InferenceConsole({
                     <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
                       {m.role}
                     </span>
-                    {pipe?.tokensPerSec != null && (
-                      <span className="text-[11px] tabular-nums text-ink-subtle">
-                        {pipe.tokensPerSec.toFixed(1)} tok/s
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {m.role === "user" && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-ink-subtle hover:text-ink"
+                          onClick={() => startEdit(m.id, m.content)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {m.role === "assistant" && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-ink-subtle hover:text-ink"
+                          onClick={() => {
+                            const { thread: trimmed, userText, userImage } =
+                              truncateBeforeMessage(thread!, m.id);
+                            if (!userText) return;
+                            refreshThreads(trimmed);
+                            regenerateFrom(userText, userImage);
+                          }}
+                        >
+                          Regenerate
+                        </button>
+                      )}
+                      {pipe?.tokensPerSec != null && (
+                        <span className="text-[11px] tabular-nums text-ink-subtle">
+                          {pipe.tokensPerSec.toFixed(1)} tok/s
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {m.role === "assistant" ? (
+                  {m.role === "user" && editingId === m.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        rows={2}
+                        className="w-full resize-none rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => commitEdit(m.id)}>
+                          Save & rerun
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : m.role === "assistant" ? (
                     display || streaming ? (
-                      <MarkdownMessage text={display} streaming={streaming} />
+                      <MarkdownMessage
+                        text={display}
+                        streaming={streaming}
+                        citations={citations}
+                      />
                     ) : (
                       <span className="animate-pulse-soft text-sm text-ink-subtle">
                         waiting for tokens…
                       </span>
                     )
                   ) : (
-                    <p className="whitespace-pre-wrap text-sm text-ink">
-                      {m.content}
-                    </p>
+                    <>
+                      {m.image && (
+                        // eslint-disable-next-line @next/next/no-img-element -- chat data URL
+                        <img
+                          src={m.image}
+                          alt=""
+                          className="mb-2 max-h-40 rounded-lg border border-border object-contain"
+                        />
+                      )}
+                      <p className="whitespace-pre-wrap text-sm text-ink">
+                        {m.content}
+                      </p>
+                    </>
                   )}
                 </div>
               );
@@ -476,70 +876,3 @@ export function InferenceConsole({
     </div>
   );
 }
-
-function ProvisionedStatus({ provisioned }: { provisioned: ProvisionedView }) {
-  const model = getModel(provisioned.modelId);
-  const label = model?.label ?? provisioned.repo ?? provisioned.modelId;
-  const pct = provisioned.progress
-    ? Math.round(provisioned.progress.progress * 100)
-    : null;
-  return (
-    <div className="rounded-xl border border-border bg-surface-sunken p-3">
-      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
-        <div className="flex items-center gap-2">
-          <Badge tone="accent">{label}</Badge>
-          <span>
-            {provisioned.readyCount}/{provisioned.numShards || 1} shards
-          </span>
-        </div>
-        <Badge tone={pipelineTone[provisioned.status]} dot>
-          {provisioned.status}
-        </Badge>
-      </div>
-      {provisioned.status === "error" && provisioned.error && (
-        <p className="mt-2 text-xs text-danger">{provisioned.error}</p>
-      )}
-      {provisioned.progress && pct != null && provisioned.status !== "error" && (
-        <div className="mt-2">
-          <div className="mb-1 flex justify-between text-[11px] text-ink-subtle">
-            <span className="truncate">
-              {provisioned.progress.text || "warming"}
-            </span>
-            <span className="tabular-nums">{pct}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-surface">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      )}
-      {provisioned.shards.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-ink-subtle">
-          {provisioned.shards.map((s, i) => (
-            <span
-              key={i}
-              className="rounded-md border border-border bg-surface px-1.5 py-0.5 tabular-nums"
-            >
-              {s.peerId.slice(0, 6)} · L{s.layerStart}–{s.layerEnd - 1}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const pipelineTone: Record<
-  PipelineStatus,
-  "neutral" | "accent" | "positive" | "warning" | "danger"
-> = {
-  planning: "warning",
-  warming: "warning",
-  ready: "positive",
-  queued: "neutral",
-  running: "accent",
-  done: "positive",
-  error: "danger",
-};

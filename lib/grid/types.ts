@@ -21,7 +21,10 @@ export interface TaskRecord {
   error?: string;
   createdAt: number;
   updatedAt: number;
+  priority?: number;
 }
+
+export type RoomRole = "owner" | "compute" | "request";
 
 /** Gossiped presence/capability heartbeat for a peer. */
 export interface PeerPresence {
@@ -33,6 +36,18 @@ export interface PeerPresence {
   ts: number;
   /** Whether this is the local node. */
   self?: boolean;
+  /** Guest-chosen label for this tab. */
+  displayName?: string;
+  /** Room role badge (owner / compute / request-only). */
+  roomRole?: RoomRole;
+  /** Round-trip latency ms (gossiped). */
+  rttMs?: number;
+  /** Tokens served this session (compute score input). */
+  tokensServed?: number;
+  /** 0–1 reliability score for routing. */
+  computeScore?: number;
+  /** Preferred device label for LM Link-style routing. */
+  deviceLabel?: string;
 }
 
 // --- pipeline-parallel (sharded) inference ----------------------------------
@@ -123,6 +138,15 @@ export interface ProvisionedView {
   progress: { progress: number; text: string } | null;
 }
 
+export type ModelLoadPolicy = "keep-warm" | "evict-idle";
+
+export interface SessionTelemetry {
+  queueDepth: number;
+  tokensPerSec: number | null;
+  medianRttMs: number | null;
+  activeJobCount: number;
+}
+
 export interface GridSnapshot {
   selfId: string;
   caps: DeviceCapabilities | null;
@@ -137,4 +161,12 @@ export interface GridSnapshot {
   provisioned: ProvisionedView | null;
   /** One entry per submitted prompt (chat history) run on the provisioned model. */
   pipelines: PipelineView[];
+  /** Estimated VRAM required by the provisioned model (MB), if known. */
+  modelVramMb: number | null;
+  /** This device's coarse usable-memory estimate (MB). */
+  vramEstimateMb: number | null;
+  loadPolicy: ModelLoadPolicy;
+  telemetry: SessionTelemetry;
+  /** Last recoverable pipeline / provision error for UI retry prompts. */
+  lastError: string | null;
 }

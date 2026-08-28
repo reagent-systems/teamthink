@@ -1,0 +1,17 @@
+{
+  "name": "TeamThink",
+  "short_name": "TeamThink",
+  "description": "Peer-to-peer WebGPU inference grid",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f12",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -15,12 +15,23 @@ import {
 } from "@/lib/grid/capabilities";
 import type {
   GridSnapshot,
+  ModelLoadPolicy,
   PeerPresence,
   PipelineRecord,
   PipelineView,
   ProvisionedView,
+  SessionTelemetry,
   TaskRecord,
 } from "@/lib/grid/types";
+import {
+  getStoredLoadPolicy,
+  IDLE_EVICT_MS,
+} from "@/lib/session/load-policy";
+import {
+  getDisplayName,
+  resolveRoomRole,
+  type RoomRole,
+} from "@/lib/session/profile";
 import {
   buildModelDescriptor,
   buildPipelinePlan,
@@ -38,6 +49,9 @@ import {
 import { isEos } from "@/lib/engine/shard/manifest";
 import type { ShardRange } from "@/lib/engine/shard/model-descriptor";
 import { MeshYjsProvider } from "@/lib/mesh/yjs-provider";
+import { priorityForRole, effectivePriority } from "@/lib/grid/priority";
+import { getDeviceLabel } from "@/lib/grid/device-routing";
+import { scorePeer } from "@/lib/mesh/routing";
 import { generatePeerId } from "@/lib/id";
 
 const enc = new TextEncoder();
@@ -48,7 +62,7 @@ type AppMessage =
   | { t: "token"; jobId: string; token: string }
   | { t: "stage"; jobId: string; stage: string; progress: number };
 
-const MAX_CONCURRENT = 1;
+const MAX_CONCURRENT = 2;
 /** Window to let CRDT claims converge before committing to run. */
 const CLAIM_SETTLE_MS = 350;
 /** If a pipeline step makes no progress within this window, abort. */
@@ -144,14 +158,24 @@ export class GridNode {
       jsonMode?: boolean;
     }
   >();
-  private jobQueue: string[] = [];
+  private jobQueue: { jobId: string; priority: number }[] = [];
+  private tokensServed = 0;
   private currentJobId: string | null = null;
+
+  private loadPolicy: ModelLoadPolicy = "keep-warm";
+  private loadGeneration = 0;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastActivityAt = Date.now();
+  private displayName = "";
+  private roomRole: RoomRole = "request";
+  private lastError: string | null = null;
 
   private listeners = new Set<() => void>();
   private snapshot: GridSnapshot;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private started = false;
+  private sessionStartedAt = Date.now();
 
   constructor(readonly roomId: string) {
     this.peerId = generatePeerId();
@@ -174,6 +198,14 @@ export class GridNode {
 
     this.caps = await detectCapabilities();
 
+    this.loadPolicy = getStoredLoadPolicy();
+    this.displayName = getDisplayName();
+    this.roomRole = resolveRoomRole(
+      this.roomId,
+      this.peerId,
+      !!this.caps?.webgpu,
+    );
+
     this.mesh.on(CHANNEL_APP, (peerId, payload) =>
       this.onAppMessage(peerId, payload),
     );
@@ -195,6 +227,7 @@ export class GridNode {
   stop(): void {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+    if (this.idleTimer) clearTimeout(this.idleTimer);
     for (const t of this.pipeStepTimers.values()) clearTimeout(t);
     this.pipeStepTimers.clear();
     this.provider.destroy();
@@ -230,6 +263,7 @@ export class GridNode {
       status: "open",
       createdAt: now,
       updatedAt: now,
+      priority: effectivePriority(priorityForRole(this.roomRole), now),
     };
     this.tasks.set(id, task);
     this.streams.set(id, "");
@@ -245,12 +279,14 @@ export class GridNode {
    */
   async provision(modelId: string, repo: string): Promise<void> {
     if (this.provisionedRepo === repo && this.provisionedPlanId) return;
+    this.touchActivity();
+    this.lastError = null;
     const prev = this.provisionedPlanId;
     this.provisionedRepo = repo;
     const planId = `pl_${slug(modelId)}_${slug(repo)}`;
     this.provisionedPlanId = planId;
     // Cancel anything queued against the previous model.
-    for (const jobId of this.jobQueue) {
+    for (const { jobId } of this.jobQueue) {
       const v = this.jobs.get(jobId);
       if (v) {
         v.status = "error";
@@ -319,10 +355,115 @@ export class GridNode {
     });
     this.jobMessages.set(jobId, messages);
     this.jobOptions.set(jobId, merged);
-    this.jobQueue.push(jobId);
+    this.jobQueue.push({
+      jobId,
+      priority: effectivePriority(priorityForRole(this.roomRole), Date.now()),
+    });
+    this.jobQueue.sort((a, b) => a.priority - b.priority);
     this.recompute();
+    this.touchActivity();
     void this.maybeRunNext();
     return jobId;
+  }
+
+  /** Keep model loaded vs evict after idle (persisted in localStorage). */
+  setLoadPolicy(policy: ModelLoadPolicy): void {
+    this.loadPolicy = policy;
+    this.resetIdleTimer();
+    this.recompute();
+  }
+
+  getLoadPolicy(): ModelLoadPolicy {
+    return this.loadPolicy;
+  }
+
+  setDisplayName(name: string): void {
+    this.displayName = name.trim();
+    this.updateSelfPresence();
+  }
+
+  /** Abort an in-flight shard/model warm on this device. */
+  cancelLoad(): void {
+    this.loadGeneration += 1;
+    this.inference.cancelPending();
+    this.modelLoad = null;
+    this.warmedPlan = null;
+    const planId = this.provisionedPlanId;
+    if (planId) {
+      const record = this.pipelines.get(planId);
+      if (
+        record &&
+        (record.status === "planning" || record.status === "warming")
+      ) {
+        this.pipelines.set(planId, {
+          ...record,
+          status: "error",
+          error: "load cancelled",
+          updatedAt: Date.now(),
+        });
+        this.lastError = "load cancelled";
+      }
+    }
+    this.recompute();
+  }
+
+  /** Unload the provisioned model and free local VRAM. */
+  async deprovision(): Promise<void> {
+    this.cancelLoad();
+    const prev = this.provisionedPlanId;
+    this.provisionedPlanId = null;
+    this.provisionedRepo = null;
+    this.warmedPlan = null;
+    this.loadedModels.clear();
+    this.activeModelId = null;
+    this.modelLoad = null;
+    for (const { jobId } of this.jobQueue) {
+      const v = this.jobs.get(jobId);
+      if (v) {
+        v.status = "error";
+        v.error = "model unloaded";
+      }
+    }
+    this.jobQueue = [];
+    if (prev) this.pipelines.delete(prev);
+    try {
+      await this.inference.unload();
+    } catch {
+      // ignore unload failures during teardown
+    }
+    this.updateSelfPresence();
+    this.recompute();
+  }
+
+  /** Stop the in-flight generation job. */
+  stopCurrentJob(): void {
+    const jobId = this.currentJobId;
+    const planId = this.provisionedPlanId;
+    if (jobId && planId) {
+      this.abortPipeline(planId, "stopped by user", jobId);
+    }
+  }
+
+  /** Re-warm the current model after a recoverable error. */
+  retryProvision(): Promise<void> {
+    const repo = this.provisionedRepo;
+    const planId = this.provisionedPlanId;
+    if (!repo || !planId) return Promise.resolve();
+    const record = this.pipelines.get(planId);
+    const modelId = record?.plan.modelId ?? repo;
+    this.lastError = null;
+    this.warmedPlan = null;
+    if (record) {
+      this.pipelines.set(planId, {
+        ...record,
+        status: "warming",
+        error: undefined,
+        ready: {},
+        updatedAt: Date.now(),
+      });
+    }
+    this.recompute();
+    return this.planAndPublish(modelId, repo, planId);
   }
 
   /** Preload a model so this device advertises itself as a provider for it. */
@@ -361,6 +502,17 @@ export class GridNode {
       activeJobs: this.activeJobs,
       ts: Date.now(),
       self: true,
+      displayName: this.displayName || undefined,
+      roomRole: this.roomRole,
+      deviceLabel: getDeviceLabel() || undefined,
+      tokensServed: this.tokensServed,
+      rttMs: this.avgRtt(),
+      computeScore: scorePeer(
+        this.peerId,
+        this.avgRtt(),
+        this.tokensServed,
+        this.sessionStartedAt,
+      ).reliability,
     };
     this.presence.set(this.peerId, self);
     this.recompute();
@@ -381,6 +533,13 @@ export class GridNode {
       this.pingSentAt.set(nonce, performance.now());
       this.sendPipe(peerId, { kind: "ping", nonce });
     }
+  }
+
+  private avgRtt(): number {
+    if (this.rtt.size === 0) return 0;
+    let sum = 0;
+    for (const v of this.rtt.values()) sum += v;
+    return sum / this.rtt.size;
   }
 
   private prunePresence(): void {
@@ -647,6 +806,7 @@ export class GridNode {
     repo: string,
     error: string,
   ): void {
+    this.lastError = error;
     const existing = this.pipelines.get(planId);
     const plan = existing?.plan ?? {
       planId,
@@ -713,6 +873,7 @@ export class GridNode {
     record: PipelineRecord,
   ): Promise<void> {
     if (this.warmedPlan && this.warmedPlan !== planId) return; // one plan at a time
+    const gen = this.loadGeneration;
     this.warmedPlan = planId;
     const role = roleFor(record.plan, this.peerId);
     if (role.shardIndex == null) return;
@@ -727,10 +888,13 @@ export class GridNode {
     };
     try {
       const desc = await buildModelDescriptor(record.plan.repo);
+      if (gen !== this.loadGeneration) return;
       await this.inference.shardLoad(desc, range, (progress, text) => {
+        if (gen !== this.loadGeneration) return;
         this.modelLoad = { progress, text };
         this.recompute();
       });
+      if (gen !== this.loadGeneration) return;
       this.modelLoad = null;
       const cur = this.pipelines.get(planId);
       if (!cur) return;
@@ -742,11 +906,13 @@ export class GridNode {
       this.recompute();
     } catch (err) {
       this.warmedPlan = null;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.lastError = msg;
       this.publishPipelineError(
         planId,
         record.plan.modelId,
         record.plan.repo,
-        err instanceof Error ? err.message : String(err),
+        msg,
       );
     }
   }
@@ -758,7 +924,7 @@ export class GridNode {
     if (!planId) return;
     const record = this.pipelines.get(planId);
     if (!record || record.status !== "ready") return;
-    const jobId = this.jobQueue.shift();
+    const jobId = this.jobQueue.shift()?.jobId;
     if (!jobId) return;
     const messages = this.jobMessages.get(jobId);
     this.jobMessages.delete(jobId);
@@ -1098,6 +1264,7 @@ export class GridNode {
   }
 
   private abortPipeline(planId: string, reason: string, jobId?: string): void {
+    this.lastError = reason;
     const record = this.pipelines.get(planId);
     const failedJob = jobId ?? this.currentJobId;
     if (failedJob) {
@@ -1230,6 +1397,7 @@ export class GridNode {
     );
     const streams: Record<string, string> = {};
     for (const [id, text] of this.streams) streams[id] = text;
+    const provisioned = this.provisionedView();
     this.snapshot = {
       selfId: this.peerId,
       caps: this.caps,
@@ -1241,10 +1409,48 @@ export class GridNode {
       connected: this.mesh.connectedPeers.length > 0,
       activeModelId: this.activeModelId,
       modelLoad: this.modelLoad,
-      provisioned: this.provisionedView(),
+      provisioned,
       pipelines: this.pipelineViews(),
+      modelVramMb: this.modelVramMb(provisioned),
+      vramEstimateMb: this.caps?.memoryEstimateMb ?? null,
+      loadPolicy: this.loadPolicy,
+      telemetry: this.telemetryView(),
+      lastError: this.lastError,
     };
     for (const l of this.listeners) l();
+  }
+
+  private modelVramMb(provisioned: ProvisionedView | null): number | null {
+    if (!provisioned) return null;
+    const model = getModel(provisioned.modelId);
+    return model?.vramMb ?? null;
+  }
+
+  private telemetryView(): SessionTelemetry {
+    const rtts = [...this.rtt.values()].sort((a, b) => a - b);
+    const medianRtt =
+      rtts.length > 0 ? rtts[Math.floor(rtts.length / 2)] : null;
+    const running = [...this.jobs.values()].find((j) => j.status === "running");
+    return {
+      queueDepth: this.jobQueue.length,
+      tokensPerSec: running?.tokensPerSec ?? null,
+      medianRttMs: medianRtt,
+      activeJobCount: this.activeJobs,
+    };
+  }
+
+  private touchActivity(): void {
+    this.lastActivityAt = Date.now();
+    this.resetIdleTimer();
+  }
+
+  private resetIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    if (this.loadPolicy !== "evict-idle" || !this.provisionedPlanId) return;
+    this.idleTimer = setTimeout(() => {
+      void this.deprovision();
+    }, IDLE_EVICT_MS);
   }
 
   private emptySnapshot(): GridSnapshot {
@@ -1259,6 +1465,16 @@ export class GridNode {
       modelLoad: null,
       provisioned: null,
       pipelines: [],
+      modelVramMb: null,
+      vramEstimateMb: null,
+      loadPolicy: "keep-warm",
+      telemetry: {
+        queueDepth: 0,
+        tokensPerSec: null,
+        medianRttMs: null,
+        activeJobCount: 0,
+      },
+      lastError: null,
     };
   }
 }

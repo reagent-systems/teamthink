@@ -1,4 +1,4 @@
-import type { ModelSpec } from "@/lib/config";
+import type { EngineKind, ModelSpec } from "@/lib/config";
 import type {
   ChatMessage,
   GenerateOptions,
@@ -63,12 +63,19 @@ type TransformersModule = {
 };
 
 export class TransformersEngine implements InferenceEngine {
-  readonly kind = "transformers" as const;
+  readonly kind: EngineKind = "transformers";
   private loadedModelId: string | null = null;
   private tf: TransformersModule | null = null;
 
   private textPipe: TextPipe | null = null;
+  private embedPipe: TextPipe | null = null;
+  private asrPipe: TextPipe | null = null;
   private vlm: { processor: Processor; model: VlmModel } | null = null;
+
+  /** Override in GgufEngine for WASM CPU inference. */
+  protected inferDevice(): "webgpu" | "wasm" {
+    return "webgpu";
+  }
 
   private async module(): Promise<TransformersModule> {
     if (!this.tf) {
@@ -83,7 +90,10 @@ export class TransformersEngine implements InferenceEngine {
     model: ModelSpec,
     onProgress: (p: LoadProgress) => void,
   ): Promise<void> {
-    if (this.loadedModelId === model.modelId && (this.textPipe || this.vlm))
+    if (
+      this.loadedModelId === model.modelId &&
+      (this.textPipe || this.vlm || this.embedPipe)
+    )
       return;
     const tf = await this.module();
     await this.unload();
@@ -95,7 +105,27 @@ export class TransformersEngine implements InferenceEngine {
       });
 
     try {
-      if (model.modality === "vision") {
+      const device = this.inferDevice();
+      if (model.modality === "embedding") {
+        this.embedPipe = await tf.pipeline(
+          "feature-extraction",
+          model.modelId,
+          {
+            device,
+            dtype: "fp32",
+            progress_callback,
+          },
+        );
+      } else if (model.modality === "audio") {
+        this.asrPipe = await tf.pipeline(
+          "automatic-speech-recognition",
+          model.modelId,
+          {
+            device: "wasm",
+            progress_callback,
+          },
+        );
+      } else if (model.modality === "vision") {
         const [processor, vlmModel] = await Promise.all([
           tf.AutoProcessor.from_pretrained(model.modelId, {
             progress_callback,
@@ -109,8 +139,8 @@ export class TransformersEngine implements InferenceEngine {
         this.vlm = { processor, model: vlmModel };
       } else {
         this.textPipe = await tf.pipeline("text-generation", model.modelId, {
-          device: "webgpu",
-          dtype: "q4",
+          device,
+          dtype: device === "wasm" ? "q8" : "q4",
           progress_callback,
         });
       }
@@ -213,15 +243,77 @@ export class TransformersEngine implements InferenceEngine {
     return sink.text;
   }
 
+  /** Transcribe 16 kHz mono WAV/Float32 audio to text (Whisper-class STT). */
+  async transcribe(model: ModelSpec, audio: Float32Array): Promise<string> {
+    if (this.loadedModelId !== model.modelId || !this.asrPipe) {
+      await this.load(model, () => {});
+    }
+    const pipe = this.asrPipe!;
+    const out = (await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 })) as
+      | { text?: string }
+      | { text?: string }[];
+    if (Array.isArray(out)) return out.map((x) => x.text ?? "").join(" ").trim();
+    return (out.text ?? "").trim();
+  }
+
+  /** Mean-pooled, L2-normalized embedding vectors (OpenAI /v1/embeddings shape). */
+  async embed(model: ModelSpec, texts: string[]): Promise<number[][]> {
+    if (this.loadedModelId !== model.modelId || !this.embedPipe) {
+      await this.load(model, () => {});
+    }
+    const pipe = this.embedPipe!;
+    const raw = (await pipe(texts, {
+      pooling: "mean",
+      normalize: true,
+    })) as { data?: Float32Array | number[]; dims?: number[] } | unknown;
+
+    return tensorToVectors(raw, texts.length);
+  }
+
   async unload(): Promise<void> {
     try {
       await this.textPipe?.dispose?.();
+      await this.embedPipe?.dispose?.();
+      await this.asrPipe?.dispose?.();
       await this.vlm?.model.dispose?.();
     } catch {
       // ignore
     }
     this.textPipe = null;
+    this.embedPipe = null;
+    this.asrPipe = null;
     this.vlm = null;
     this.loadedModelId = null;
   }
+}
+
+function tensorToVectors(
+  raw: unknown,
+  count: number,
+): number[][] {
+  if (Array.isArray(raw)) {
+    if (raw.length > 0 && Array.isArray(raw[0])) {
+      return (raw as number[][]).map((row) => [...row]);
+    }
+    if (typeof raw[0] === "number") {
+      const flat = raw as number[];
+      const dim = Math.floor(flat.length / count);
+      const out: number[][] = [];
+      for (let i = 0; i < count; i++) {
+        out.push(flat.slice(i * dim, (i + 1) * dim));
+      }
+      return out;
+    }
+  }
+  const t = raw as { data?: Float32Array | number[]; dims?: number[] };
+  if (t?.data && t.dims) {
+    const data = t.data instanceof Float32Array ? t.data : Float32Array.from(t.data);
+    const dim = t.dims[t.dims.length - 1] ?? data.length / count;
+    const out: number[][] = [];
+    for (let i = 0; i < count; i++) {
+      out.push(Array.from(data.slice(i * dim, (i + 1) * dim)));
+    }
+    return out;
+  }
+  throw new Error("unexpected embedding output shape");
 }

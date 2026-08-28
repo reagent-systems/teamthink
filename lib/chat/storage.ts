@@ -86,6 +86,7 @@ export function createThread(
     jsonMode: false,
     jsonSchema: "",
     modelId: null,
+    ragEnabled: false,
     createdAt: now,
     updatedAt: now,
     ...partial,
@@ -148,6 +149,49 @@ export function updateAssistantByJob(
   return next;
 }
 
+export function clearThreadMessages(thread: ChatThread): ChatThread {
+  const next = { ...thread, messages: [], updatedAt: Date.now() };
+  saveThread(next);
+  return next;
+}
+
+export function truncateBeforeMessage(
+  thread: ChatThread,
+  messageId: string,
+): { thread: ChatThread; userText: string | null; userImage?: string } {
+  const idx = thread.messages.findIndex((m) => m.id === messageId);
+  if (idx < 0) return { thread, userText: null };
+  let userIdx = idx;
+  if (thread.messages[idx]?.role === "assistant") {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (thread.messages[i]?.role === "user") {
+        userIdx = i;
+        break;
+      }
+    }
+  }
+  const userMsg = thread.messages[userIdx];
+  const userText = userMsg?.role === "user" ? userMsg.content : null;
+  const userImage = userMsg?.role === "user" ? userMsg.image : undefined;
+  const messages = thread.messages.slice(0, userIdx);
+  const next = { ...thread, messages, updatedAt: Date.now() };
+  saveThread(next);
+  return { thread: next, userText, userImage };
+}
+
+export function updateUserMessage(
+  thread: ChatThread,
+  messageId: string,
+  content: string,
+): ChatThread {
+  const messages = thread.messages.map((m) =>
+    m.id === messageId && m.role === "user" ? { ...m, content } : m,
+  );
+  const next = { ...thread, messages, updatedAt: Date.now() };
+  saveThread(next);
+  return next;
+}
+
 export function listPresets(): PromptPreset[] {
   const custom = readJson<PromptPreset[]>(PRESETS_KEY, []);
   const byId = new Map<string, PromptPreset>();
@@ -182,7 +226,7 @@ export function mergeSampler(
 export function buildRunMessages(
   thread: ChatThread,
   userText: string,
-  systemExtra?: string,
+  opts?: { image?: string; ragContext?: string },
 ): ChatMessage[] {
   const parts: ChatMessage[] = [];
   const preset = listPresets().find((p) => p.id === thread.presetId);
@@ -193,18 +237,28 @@ export function buildRunMessages(
       system,
       "Respond with a single valid JSON value only. No markdown fences, no prose.",
       schema ? `Conform to this JSON Schema:\n${schema}` : "",
-      systemExtra ?? "",
     ]
       .filter(Boolean)
       .join("\n\n");
-  } else if (systemExtra) {
-    system = [system, systemExtra].filter(Boolean).join("\n\n");
+  }
+  if (opts?.ragContext?.trim()) {
+    system = [
+      system,
+      "Use the following retrieved excerpts when answering. Cite them as [1], [2], etc.",
+      opts.ragContext.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
   if (system) parts.push({ role: "system", content: system });
   for (const m of thread.messages) {
     if (m.role === "system") continue;
     parts.push({ role: m.role, content: m.content, image: m.image });
   }
-  parts.push({ role: "user", content: userText });
+  parts.push({
+    role: "user",
+    content: userText,
+    image: opts?.image,
+  });
   return parts;
 }

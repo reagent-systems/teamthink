@@ -1,7 +1,7 @@
 {
   "name": "teamthink-desktop",
   "productName": "TeamThink",
-  "version": "0.2.0",
+  "version": "0.15.0",
   "description": "TeamThink — downloadable WebGPU inference grid (desktop)",
   "homepage": "https://github.com/reagent-systems/teamthink",
   "repository": "https://github.com/reagent-systems/teamthink",

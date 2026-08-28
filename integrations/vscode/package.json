@@ -1,0 +1,25 @@
+{
+  "name": "teamthink-vscode",
+  "displayName": "TeamThink",
+  "description": "Complete and chat using your TeamThink pool (ROADMAP #80)",
+  "version": "0.14.0",
+  "engines": { "vscode": "^1.85.0" },
+  "activationEvents": ["onCommand:teamthink.complete"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "teamthink.complete",
+        "title": "TeamThink: Complete selection"
+      }
+    ],
+    "configuration": {
+      "properties": {
+        "teamthink.gatewayUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434"
+        }
+      }
+    }
+  },
+  "main": "./extension.js"
+}

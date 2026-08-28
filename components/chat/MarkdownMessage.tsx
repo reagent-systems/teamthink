@@ -3,20 +3,27 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import type { Citation } from "@/lib/scrape/types";
 
 /**
  * Lightweight streaming-friendly markdown: paragraphs, emphasis, inline code,
- * fenced code with copy, and collapsible thinking/reasoning blocks.
+ * fenced code with copy, collapsible thinking/reasoning blocks, and [n] citations.
  */
 export function MarkdownMessage({
   text,
   streaming,
   className,
+  citations = [],
 }: {
   text: string;
   streaming?: boolean;
   className?: string;
+  citations?: Citation[];
 }) {
+  const citeMap = useMemo(
+    () => new Map(citations.map((c) => [c.id, c])),
+    [citations],
+  );
   const blocks = useMemo(() => parseBlocks(text), [text]);
 
   return (
@@ -30,13 +37,30 @@ export function MarkdownMessage({
         }
         return (
           <p key={i} className="whitespace-pre-wrap">
-            {renderInline(b.content)}
+            {renderInline(b.content, citeMap)}
             {streaming && i === blocks.length - 1 && (
               <span className="animate-pulse-soft">▍</span>
             )}
           </p>
         );
       })}
+      {citations.length > 0 && !streaming && (
+        <ol className="mt-4 space-y-1 border-t border-border pt-3 text-[11px] text-ink-muted">
+          {citations.map((c) => (
+            <li key={c.id} id={`cite-${c.id}`}>
+              <span className="font-mono text-accent">[{c.id}]</span>{" "}
+              <a
+                href={c.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink hover:underline"
+              >
+                {c.title}
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
@@ -137,16 +161,30 @@ function parseBlocks(raw: string): Block[] {
   return blocks;
 }
 
-function renderInline(text: string): ReactNode[] {
+function renderInline(text: string, citeMap: Map<number, Citation>): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+  const re = /(\[[0-9]+\]|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const token = m[0];
-    if (token.startsWith("**")) {
+    const citeMatch = token.match(/^\[([0-9]+)\]$/);
+    if (citeMatch) {
+      const id = Number(citeMatch[1]);
+      const c = citeMap.get(id);
+      nodes.push(
+        <a
+          key={key++}
+          href={c ? `#cite-${id}` : undefined}
+          className="align-super text-[10px] font-mono text-accent hover:underline"
+          title={c?.title}
+        >
+          [{id}]
+        </a>,
+      );
+    } else if (token.startsWith("**")) {
       nodes.push(
         <strong key={key++} className="font-semibold">
           {token.slice(2, -2)}

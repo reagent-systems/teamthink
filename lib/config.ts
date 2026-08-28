@@ -3,6 +3,8 @@
  * heartbeat cadence, and the model registry shared across engines.
  */
 
+import { getGridModel } from "@/lib/models/registry";
+
 export const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
@@ -44,13 +46,18 @@ export const POOLS_URL = SIGNAL_WS_URL
   ? `${SIGNAL_WS_URL.replace(/^ws/, "http")}/pools`
   : "";
 
+/** Worker HTTP origin for scrape/crawl/search proxy routes. */
+export const WORKER_HTTP_URL = SIGNAL_WS_URL
+  ? SIGNAL_WS_URL.replace(/^ws/, "http")
+  : "";
+
 /** Client reconnect backoff bounds for the signaling socket (ms). */
 export const SIGNAL_RECONNECT_MIN_MS = 1000;
 export const SIGNAL_RECONNECT_MAX_MS = 15000;
 
-export type EngineKind = "webllm" | "transformers";
+export type EngineKind = "webllm" | "transformers" | "gguf";
 
-export type ModelModality = "text" | "vision" | "embedding";
+export type ModelModality = "text" | "vision" | "embedding" | "audio";
 
 export interface ModelSpec {
   /** Stable id used in task routing and CRDT state. */
@@ -209,6 +216,38 @@ export const MODELS: ModelSpec[] = [
     modelId: "HuggingFaceTB/SmolVLM-256M-Instruct",
     vramMb: 900,
   },
+  {
+    id: "minilm-l6",
+    label: "MiniLM L6 (embeddings)",
+    engine: "transformers",
+    modality: "embedding",
+    modelId: "Xenova/all-MiniLM-L6-v2",
+    vramMb: 200,
+  },
+  {
+    id: "whisper-tiny-en",
+    label: "Whisper Tiny (STT)",
+    engine: "transformers",
+    modality: "audio",
+    modelId: "Xenova/whisper-tiny.en",
+    vramMb: 120,
+  },
+  {
+    id: "qwen2.5-0.5b-wasm",
+    label: "Qwen2.5 0.5B (WASM CPU)",
+    engine: "gguf",
+    modality: "text",
+    modelId: "onnx-community/Qwen2.5-0.5B-Instruct",
+    vramMb: 0,
+  },
+  {
+    id: "smollm2-360m-wasm",
+    label: "SmolLM2 360M (WASM CPU)",
+    engine: "gguf",
+    modality: "text",
+    modelId: "HuggingFaceTB/SmolLM2-360M-Instruct",
+    vramMb: 0,
+  },
 ];
 
 /**
@@ -271,10 +310,15 @@ export function getShardedModel(id: string): ModelSpec | undefined {
   return SHARDED_MODELS.find((m) => m.id === id);
 }
 
+/** Resolve a model id from built-ins or the user registry. */
 export function getModel(id: string): ModelSpec | undefined {
   return (
-    MODELS.find((m) => m.id === id) ?? SHARDED_MODELS.find((m) => m.id === id)
+    MODELS.find((m) => m.id === id) ??
+    getGridModel(id) ??
+    SHARDED_MODELS.find((m) => m.id === id)
   );
 }
 
 export const DEFAULT_MODEL_ID = "smollm2-360m";
+export const DEFAULT_EMBEDDING_MODEL_ID = "minilm-l6";
+export const DEFAULT_STT_MODEL_ID = "whisper-tiny-en";

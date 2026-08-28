@@ -13,19 +13,38 @@
  * effectively nothing while still detecting disconnects.
  */
 
+import { PlatformDO } from "./platform-do";
+import {
+  appCheckOk,
+  corsJson,
+  DEFAULT_REMOTE_CONFIG,
+} from "./platform";
+
+export { PlatformDO };
+
 export interface Env {
   ROOMS: DurableObjectNamespace;
   REGISTRY: DurableObjectNamespace;
+  PLATFORM: DurableObjectNamespace;
+  AUTH_SECRET?: string;
 }
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers":
+    "content-type,authorization,x-teamthink-app-check,x-api-key",
 };
 
 const ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const PEER_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json", ...CORS },
+  });
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -33,6 +52,44 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
+    }
+
+    const platformPaths = [
+      "/auth/",
+      "/config",
+      "/rooms/",
+      "/api-keys",
+      "/orgs",
+      "/audit",
+      "/notifications",
+      "/quotas/",
+      "/artifacts",
+      "/triggers/",
+      "/webhooks",
+      "/billing/",
+      "/compliance/",
+      "/scim/",
+    ];
+    if (platformPaths.some((p) => url.pathname.startsWith(p) || url.pathname === p.replace(/\/$/, ""))) {
+      const config = DEFAULT_REMOTE_CONFIG;
+      if (!appCheckOk(request, config)) {
+        return corsJson({ error: "app check required" }, 403);
+      }
+      const stub = env.PLATFORM.get(env.PLATFORM.idFromName("global"));
+      const res = await stub.fetch(
+        new Request(`https://do${url.pathname}${url.search}`, {
+          method: request.method,
+          headers: request.headers,
+          body:
+            request.method === "GET" || request.method === "HEAD"
+              ? undefined
+              : await request.text(),
+        }),
+      );
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { "content-type": "application/json", ...CORS },
+      });
     }
 
     if (url.pathname === "/ws") {
@@ -53,9 +110,208 @@ export default {
       });
     }
 
+    if (url.pathname === "/scrape" && request.method === "POST") {
+      if (!appCheckOk(request, DEFAULT_REMOTE_CONFIG)) {
+        return json({ error: "app check required" }, 403);
+      }
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchAndParse } = await import("./scrape");
+        const page = await fetchAndParse(body.url);
+        return json(page);
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "scrape failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/search" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as {
+          query?: string;
+          limit?: number;
+          mode?: "web" | "news" | "images";
+        };
+        if (!body.query?.trim()) return json({ error: "query required" }, 400);
+        const { searchWeb } = await import("./scrape");
+        const results = await searchWeb(
+          body.query,
+          body.limit ?? 5,
+          body.mode ?? "web",
+        );
+        return json({ results });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "search failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/crawl" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as {
+          url?: string;
+          maxDepth?: number;
+          maxPages?: number;
+        };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { crawlDomain } = await import("./scrape");
+        const pages = await crawlDomain(
+          body.url,
+          Math.min(body.maxDepth ?? 1, 3),
+          Math.min(body.maxPages ?? 10, 25),
+        );
+        return json({ pages });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "crawl failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/sitemap" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchAndParse } = await import("./scrape");
+        const page = await fetchAndParse(body.url);
+        return json({ url: page.url, links: page.links });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "sitemap failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/extract-json" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string; schemaHint?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchHtmlRaw } = await import("./scrape");
+        const { extractStructuredFromHtml } = await import("./extract-json");
+        const html = await fetchHtmlRaw(body.url);
+        return json(extractStructuredFromHtml(html, body.schemaHint));
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "extract failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/parse-pdf" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const target = new URL(body.url);
+        if (!["http:", "https:"].includes(target.protocol)) {
+          return json({ error: "invalid url" }, 400);
+        }
+        const res = await fetch(target.href, {
+          headers: { "User-Agent": "TeamThink-Scraper/0.9" },
+        });
+        if (!res.ok) return json({ error: `HTTP ${res.status}` }, 502);
+        const buf = new Uint8Array(await res.arrayBuffer());
+        const text = extractPdfText(buf);
+        return json({ url: target.href, markdown: text.slice(0, 48_000) });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "pdf parse failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/openapi.yaml" && request.method === "GET") {
+      const spec = await fetch(new URL("/openapi.yaml", request.url).origin + "/openapi.yaml").catch(() => null);
+      if (spec?.ok) {
+        return new Response(await spec.text(), {
+          headers: { "content-type": "text/yaml", ...CORS },
+        });
+      }
+      return new Response("openapi: 3.1.0\ninfo:\n  title: TeamThink\n  version: 0.14.0\n", {
+        headers: { "content-type": "text/yaml", ...CORS },
+      });
+    }
+
+    if (url.pathname === "/openapi.json" && request.method === "GET") {
+      return json({
+        openapi: "3.1.0",
+        info: { title: "TeamThink Gateway API", version: "0.14.0" },
+        paths: {
+          "/v1/models": { get: { summary: "List models" } },
+          "/v1/chat/completions": { post: { summary: "Chat completion" } },
+          "/v1/embeddings": { post: { summary: "Embeddings" } },
+          "/v1/messages": { post: { summary: "Anthropic messages" } },
+          "/mcp": { post: { summary: "MCP server export" } },
+        },
+      });
+    }
+
+    if (url.pathname === "/mcp" && request.method === "POST") {
+      const { handleWorkerMcp } = await import("./mcp-route");
+      const body = (await request.json()) as {
+        id?: number | string;
+        method?: string;
+        params?: Record<string, unknown>;
+      };
+      const res = handleWorkerMcp(body);
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { "content-type": "application/json", ...CORS },
+      });
+    }
+
+    if (url.pathname === "/metrics" && request.method === "GET") {
+      const id = env.REGISTRY.idFromName("global");
+      const poolsRes = await env.REGISTRY.get(id).fetch("https://do/list");
+      const pools = (await poolsRes.json()) as { pools?: { peers: number }[] };
+      const totalPeers = (pools.pools ?? []).reduce((s, p) => s + p.peers, 0);
+      const body = [
+        "# TYPE teamthink_pools gauge",
+        `teamthink_pools ${(pools.pools ?? []).length}`,
+        "# TYPE teamthink_peers gauge",
+        `teamthink_peers ${totalPeers}`,
+        "# TYPE teamthink_worker_up gauge",
+        "teamthink_worker_up 1",
+      ].join("\n") + "\n";
+      return new Response(body, {
+        headers: { "content-type": "text/plain; version=0.0.4", ...CORS },
+      });
+    }
+
+    if (url.pathname === "/turn/credentials" && request.method === "GET") {
+      const turnUrl = (env as { TURN_URL?: string }).TURN_URL ?? process.env.TURN_URL;
+      if (!turnUrl) {
+        return json({
+          servers: [
+            { urls: "stun:stun.l.google.com:19302" },
+          ],
+        });
+      }
+      const username = `tt_${Date.now()}`;
+      const credential = b64Credential(username);
+      return json({
+        servers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: turnUrl, username, credential },
+        ],
+      });
+    }
+
     return new Response("teamthink signaling", { headers: CORS });
   },
 };
+
+function b64Credential(seed: string): string {
+  return btoa(seed).replace(/=+$/, "");
+}
 
 interface Attach {
   peer: string;
@@ -168,6 +424,28 @@ export class RoomDO {
     } catch {
       // registry is best-effort; signaling still works without it
     }
+    await this.mirrorPresence(room);
+  }
+
+  /** Server-backed presence mirror for clients that can't hold a full mesh. */
+  private async mirrorPresence(room: string): Promise<void> {
+    if (!("PLATFORM" in this.env)) return;
+    const env = this.env as Env;
+    const peers: { peer: string; at: number }[] = [];
+    for (const ws of this.state.getWebSockets()) {
+      const a = ws.deserializeAttachment() as Attach | null;
+      if (a?.peer) peers.push({ peer: a.peer, at: Date.now() });
+    }
+    try {
+      const stub = env.PLATFORM.get(env.PLATFORM.idFromName("global"));
+      await stub.fetch("https://do/rooms/" + room + "/presence", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ peers }),
+      });
+    } catch {
+      // best-effort
+    }
   }
 }
 
@@ -228,4 +506,22 @@ export class RegistryDO {
     }
     return new Response("ok");
   }
+}
+
+/** Best-effort text extraction from PDF byte streams (no full PDF parser). */
+function extractPdfText(bytes: Uint8Array): string {
+  const raw = new TextDecoder("latin1").decode(bytes);
+  const chunks: string[] = [];
+  const paren = /\(([^)\\]{3,})\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = paren.exec(raw))) {
+    const t = m[1]!.replace(/\\n/g, "\n").replace(/\\r/g, "").trim();
+    if (t.length > 2 && /[a-zA-Z]/.test(t)) chunks.push(t);
+  }
+  const stream = raw.match(/stream[\s\S]*?endstream/g) ?? [];
+  for (const block of stream) {
+    const words = block.match(/[A-Za-z][A-Za-z0-9',.-]{2,}/g) ?? [];
+    if (words.length > 8) chunks.push(words.join(" "));
+  }
+  return [...new Set(chunks)].join("\n\n").replace(/\s+/g, " ").trim();
 }

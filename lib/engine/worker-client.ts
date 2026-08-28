@@ -34,7 +34,19 @@ interface PendingShardRun {
   reject: (e: Error) => void;
 }
 
-type Pending = PendingLoad | PendingGenerate | PendingShardRun;
+interface PendingEmbed {
+  type: "embed";
+  resolve: (v: number[][]) => void;
+  reject: (e: Error) => void;
+}
+
+interface PendingTranscribe {
+  type: "transcribe";
+  resolve: (v: string) => void;
+  reject: (e: Error) => void;
+}
+
+type Pending = PendingLoad | PendingGenerate | PendingShardRun | PendingEmbed | PendingTranscribe;
 
 export class InferenceClient {
   private worker: Worker | null = null;
@@ -82,6 +94,15 @@ export class InferenceClient {
       this.pending.set(reqId, { type: "generate", onToken, resolve, reject });
       this.postRequest({ type: "generate", reqId, modelId, messages, options });
     });
+  }
+
+  cancelPending(): void {
+    for (const [, p] of this.pending) {
+      p.reject(new Error("cancelled"));
+    }
+    this.pending.clear();
+    this.worker?.terminate();
+    this.worker = null;
   }
 
   unload(): Promise<void> {
@@ -141,6 +162,29 @@ export class InferenceClient {
     });
   }
 
+  /** OpenAI-shaped embedding vectors for RAG / semantic search. */
+  embed(modelId: string, texts: string[]): Promise<number[][]> {
+    const reqId = this.nextId();
+    return new Promise<number[][]>((resolve, reject) => {
+      this.pending.set(reqId, { type: "embed", resolve, reject });
+      this.postRequest({ type: "embed", reqId, modelId, texts });
+    });
+  }
+
+  /** Whisper-class speech-to-text (16 kHz mono float32 samples). */
+  transcribe(modelId: string, audio: Float32Array): Promise<string> {
+    const reqId = this.nextId();
+    const copy = new Float32Array(audio);
+    const buf = copy.buffer;
+    return new Promise<string>((resolve, reject) => {
+      this.pending.set(reqId, { type: "transcribe", resolve, reject });
+      this.postRequest(
+        { type: "transcribe", reqId, modelId, audio: buf },
+        [buf],
+      );
+    });
+  }
+
   terminate(): void {
     this.worker?.terminate();
     this.worker = null;
@@ -182,6 +226,18 @@ export class InferenceClient {
       case "shardResult":
         if (p.type === "shardRun") {
           p.resolve(msg.result);
+          this.pending.delete(msg.reqId);
+        }
+        break;
+      case "embedDone":
+        if (p.type === "embed") {
+          p.resolve(msg.vectors);
+          this.pending.delete(msg.reqId);
+        }
+        break;
+      case "transcribeDone":
+        if (p.type === "transcribe") {
+          p.resolve(msg.text);
           this.pending.delete(msg.reqId);
         }
         break;

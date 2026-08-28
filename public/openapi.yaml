@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: TeamThink Gateway API
+  version: 0.14.0
+  description: OpenAI-compatible local mesh gateway (desktop :11434 or Worker proxy)
+servers:
+  - url: http://127.0.0.1:11434
+    description: Desktop Electron gateway
+paths:
+  /v1/models:
+    get:
+      summary: List models
+      operationId: listModels
+      responses:
+        "200":
+          description: Model list
+  /v1/chat/completions:
+    post:
+      summary: Chat completion
+      operationId: chatCompletions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model: { type: string }
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string }
+                      content: { type: string }
+      responses:
+        "200":
+          description: Completion
+  /v1/embeddings:
+    post:
+      summary: Embeddings
+      operationId: embeddings
+      responses:
+        "200":
+          description: Embedding vectors
+  /v1/messages:
+    post:
+      summary: Anthropic-compatible messages
+      operationId: messages
+      responses:
+        "200":
+          description: Message response
+  /mcp:
+    post:
+      summary: MCP JSON-RPC server export
+      operationId: mcpRpc
+      responses:
+        "200":
+          description: JSON-RPC result
