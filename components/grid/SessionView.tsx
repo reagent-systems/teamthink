@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { CapabilityPanel } from "@/components/grid/CapabilityPanel";
 import { InferenceConsole } from "@/components/grid/InferenceConsole";
 import { InviteBar } from "@/components/grid/InviteBar";
+import { ModelBrowser } from "@/components/grid/ModelBrowser";
 import { ModelPanel } from "@/components/grid/ModelPanel";
 import { OnboardingTour } from "@/components/grid/OnboardingTour";
 import { PeerList } from "@/components/grid/PeerList";
@@ -12,6 +14,14 @@ import { useGridNode } from "@/lib/grid/useGridNode";
 
 export function SessionView({ roomId }: { roomId: string }) {
   const { node, snapshot } = useGridNode(roomId);
+  const [pickModelId, setPickModelId] = useState<string | null>(null);
+  const [registryVersion, setRegistryVersion] = useState(0);
+
+  function selectModel(id: string, hfRepo: string) {
+    setPickModelId(id);
+    setRegistryVersion((v) => v + 1);
+    void node.provision(id, hfRepo);
+  }
 
   return (
     <main className="flex-1">
@@ -23,12 +33,24 @@ export function SessionView({ roomId }: { roomId: string }) {
           <TelemetryStrip snapshot={snapshot} />
           <RecoveryBanner node={node} snapshot={snapshot} />
           <ModelPanel node={node} snapshot={snapshot} />
+          <ModelBrowser
+            snapshot={snapshot}
+            selectedId={pickModelId ?? snapshot.provisioned?.modelId ?? null}
+            onSelect={selectModel}
+          />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>
 
         <div className="min-h-[70vh]">
-          <InferenceConsole node={node} snapshot={snapshot} roomId={roomId} />
+          <InferenceConsole
+            node={node}
+            snapshot={snapshot}
+            roomId={roomId}
+            pickModelId={pickModelId}
+            registryVersion={registryVersion}
+            onManualModelChange={() => setPickModelId(null)}
+          />
         </div>
       </div>
     </main>

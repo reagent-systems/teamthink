@@ -3,6 +3,8 @@
  * heartbeat cadence, and the model registry shared across engines.
  */
 
+import { getGridModel } from "@/lib/models/registry";
+
 export const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
@@ -271,9 +273,12 @@ export function getShardedModel(id: string): ModelSpec | undefined {
   return SHARDED_MODELS.find((m) => m.id === id);
 }
 
+/** Resolve a model id from built-ins or the user registry. */
 export function getModel(id: string): ModelSpec | undefined {
   return (
-    MODELS.find((m) => m.id === id) ?? SHARDED_MODELS.find((m) => m.id === id)
+    MODELS.find((m) => m.id === id) ??
+    getGridModel(id) ??
+    SHARDED_MODELS.find((m) => m.id === id)
   );
 }
 

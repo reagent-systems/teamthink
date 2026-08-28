@@ -37,7 +37,8 @@ import {
   type ChatThread,
   type SamplerSettings,
 } from "@/lib/chat/types";
-import { getModel, SHARDED_MODELS } from "@/lib/config";
+import { getModel } from "@/lib/config";
+import { listGridModels } from "@/lib/models/registry";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
 
@@ -47,17 +48,28 @@ export function InferenceConsole({
   node,
   snapshot,
   roomId,
+  pickModelId,
+  registryVersion = 0,
+  onManualModelChange,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
   roomId: string;
+  pickModelId?: string | null;
+  registryVersion?: number;
+  onManualModelChange?: () => void;
 }) {
+  const gridModels = useMemo(
+    () => listGridModels(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when browser adds models
+    [registryVersion],
+  );
   const [modelId, setModelId] = useState(() => {
-    if (typeof window === "undefined") return SHARDED_MODELS[0]?.id ?? CUSTOM;
+    if (typeof window === "undefined") return gridModels[0]?.id ?? CUSTOM;
     const active = ensureActiveThread(roomId);
     return active.modelId && getModel(active.modelId)
       ? active.modelId
-      : (SHARDED_MODELS[0]?.id ?? CUSTOM);
+      : (gridModels[0]?.id ?? CUSTOM);
   });
   const [customRepo, setCustomRepo] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -76,7 +88,9 @@ export function InferenceConsole({
   );
 
   const isCustom = modelId === CUSTOM;
-  const model = isCustom ? null : getModel(modelId);
+  const effectiveModelId =
+    pickModelId && getModel(pickModelId) ? pickModelId : modelId;
+  const model = isCustom ? null : getModel(effectiveModelId);
   const provisioned = snapshot.provisioned;
   const threadRef = useRef<ChatThread | null>(thread);
 
@@ -211,7 +225,7 @@ export function InferenceConsole({
         node.stopCurrentJob();
         break;
       case "model": {
-        const id = arg || SHARDED_MODELS[0]?.id;
+        const id = arg || gridModels[0]?.id;
         if (!id) break;
         if (id === CUSTOM || getModel(id)) {
           setModelId(id);
@@ -339,14 +353,15 @@ export function InferenceConsole({
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <select
-              value={modelId}
+              value={effectiveModelId}
               onChange={(e) => {
                 setModelId(e.target.value);
+                onManualModelChange?.();
                 patchThread({ modelId: e.target.value });
               }}
               className="h-10 rounded-xl border border-border bg-canvas px-3 text-sm text-ink outline-none focus:border-accent"
             >
-              {SHARDED_MODELS.map((m) => (
+              {gridModels.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
