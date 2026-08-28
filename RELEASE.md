@@ -1,5 +1,53 @@
 # TeamThink Desktop Releases
 
+## v0.3.0 — Phase 0 polish (model lifecycle → onboarding)
+
+Completes ROADMAP Phase 0 features 6–12: model load/unload UI, keyboard chat,
+invite UX, capability dashboard, telemetry, error recovery, and onboarding.
+
+### What’s new in 0.3.0
+
+#### 6. Model load / unload lifecycle UI
+
+You pick a model and need to see download progress, cancel a slow warm, or free
+VRAM when done. The Model lifecycle panel shows a progress bar, VRAM fit meter,
+Cancel load, Unload, and Keep warm vs Evict after 15 minutes idle.
+
+#### 7. Keyboard-first chat
+
+You want to send fast and control the session from the keyboard. Use ⌘/Ctrl+Enter
+to send. Slash commands: `/model`, `/clear`, `/stop`. Edit a user message or
+Regenerate an assistant reply.
+
+#### 8. Invite & room UX
+
+You need others to join your compute mesh quickly. Room codes stay short. Copy
+invite or show a QR code. Set a display name. Peers show owner, compute, or
+request-only role badges.
+
+#### 9. Capability dashboard
+
+You want to know if this machine can host models. The Capabilities panel shows
+WebGPU status, GPU vendor/architecture, shader-f16, estimated VRAM, compatible
+model count, and mesh connectivity.
+
+#### 10. Session telemetry strip
+
+You want health at a glance while jobs run. The strip shows queue depth, tok/s,
+median peer RTT, and shard hop count while the model warms across the pool.
+
+#### 11. Error recovery playbook
+
+A peer drops mid-shard or a load fails. A recovery banner explains what happened
+and offers Retry load, Stop job, or Unload model.
+
+#### 12. Onboarding tour
+
+You open TeamThink for the first time. A short tour walks through create/join,
+pick a model, invite peers, and send your first prompt.
+
+---
+
 ## v0.2.0 — Phase 0 chat + desktop shell
 
 First downloadable desktop build. Browser WebGPU is limited; this Electron
