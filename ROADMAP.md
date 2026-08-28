@@ -46,10 +46,10 @@ Ship the product people expect when they open a local / mesh AI app.
 
 Bring desktop local-LLM polish into the browser mesh.
 
-13. `[ ]` **In-app Hugging Face model browser** — search, filter by size/modality/quant, one-click add to registry.
-14. `[ ]` **Custom model import** — paste any MLC / Transformers.js / HF repo id; validate WebGPU compatibility before load.
+13. `[x]` **In-app Hugging Face model browser** — search, filter by size/modality/quant, one-click add to registry.
+14. `[x]` **Custom model import** — paste any MLC / Transformers.js / HF repo id; validate WebGPU compatibility before load.
 15. `[ ]` **GGUF / llama.cpp WASM path** — optional engine for broader CPU/GPU coverage beyond WebLLM quants.
-16. `[ ]` **Quantization picker** — q4 / q5 / q8 / f16 variants with VRAM fit estimator across the pool.
+16. `[x]` **Quantization picker** — q4 / q5 / q8 / f16 variants with VRAM fit estimator across the pool.
 17. `[ ]` **Embeddings engine** — first-class embedding models for RAG and semantic search (OpenAI `/v1/embeddings` shape).
 18. `[ ]` **Vision & multimodal chat** — image attach, PDF page vision, multi-image turns (beyond SmolVLM demo).
 19. `[ ]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.

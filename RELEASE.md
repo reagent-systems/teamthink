@@ -1,5 +1,30 @@
 # TeamThink Desktop Releases
 
+## v0.4.0 — Phase 1 model hub (HF browser + import)
+
+Search Hugging Face, validate repos, and add sharded grid models from the session UI.
+
+### What’s new in 0.4.0
+
+#### 13. In-app Hugging Face model browser
+
+You want more models than the built-in list. Open **Model hub → Search**, filter by
+text/vision/embedding, size, and quant tags, then **Add** a public safetensors repo
+to your grid registry.
+
+#### 14. Custom model import with validation
+
+You have a specific HF repo id. Paste it under **Import repo**, run **Validate** to
+check architecture support and safetensors weights, then **Add to grid**. Ungated
+repos with supported dense decoders (Llama, Qwen, Gemma, Phi, Mistral families) work.
+
+#### 16. Quantization filter + VRAM estimate
+
+You need a smaller quant or want to know if a model fits. Filter search results by
+q4/q8/f16 hints and see an estimated VRAM figure on validated imports before loading.
+
+---
+
 ## v0.3.0 — Phase 0 polish (model lifecycle → onboarding)
 
 Completes ROADMAP Phase 0 features 6–12: model load/unload UI, keyboard chat,
