@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "worker/**",
     // Electron shell uses CommonJS require().
     "desktop/**",
+    "scripts/**",
+    "integrations/**",
   ]),
 ]);
 

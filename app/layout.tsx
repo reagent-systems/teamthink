@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TeamThink" }],
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "TeamThink" }],
     type: "website",
   },
   twitter: {
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "TeamThink — Shared WebGPU Inference Grid",
     description:
       "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 
