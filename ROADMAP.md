@@ -125,7 +125,7 @@ Scale beyond full-mesh toy rooms into a real inference swarm.
 68. `[x]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
 69. `[x]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
 70. `[x]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
-71. `[~]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
+71. `[x]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
 72. `[x]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
 73. `[x]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
 74. `[x]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.
