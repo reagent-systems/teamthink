@@ -107,6 +107,14 @@ export default function Home() {
             </li>
           </ol>
         </section>
+
+        <p className="mt-10 text-sm text-ink-muted">
+          <a href="/admin/" className="text-accent-strong hover:underline">
+            Admin console
+          </a>
+          {" · "}
+          Platform auth, Remote Config, and audit logs
+        </p>
       </div>
     </main>
   );

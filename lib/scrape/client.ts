@@ -1,4 +1,5 @@
 import { WORKER_HTTP_URL } from "@/lib/config";
+import { authHeaders } from "@/lib/auth/types";
 import { firecrawlScrape } from "@/lib/scrape/firecrawl";
 import { extractStructuredFromHtml } from "@/lib/scrape/extract-json";
 import { parseHtml } from "@/lib/scrape/html-to-md";
@@ -12,11 +13,14 @@ async function workerPost<T>(path: string, body: Record<string, unknown>): Promi
   }
   const res = await fetch(`${WORKER_HTTP_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   });
   const json = (await res.json()) as T & { error?: string };
   if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  void import("@/lib/platform/client").then(({ consumeQuota }) =>
+    consumeQuota({ scrapes: 1 }).catch(() => {}),
+  );
   return json;
 }
 

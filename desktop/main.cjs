@@ -102,7 +102,7 @@ function startGatewayServer() {
   const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Api-Key");
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
@@ -111,6 +111,12 @@ function startGatewayServer() {
 
     const url = new URL(req.url || "/", "http://127.0.0.1");
     const pathname = url.pathname.replace(/\/+$/, "") || "/";
+    const apiKey =
+      req.headers["x-api-key"] ||
+      (typeof req.headers.authorization === "string" &&
+      req.headers.authorization.startsWith("Bearer ")
+        ? req.headers.authorization.slice(7)
+        : null);
 
     if (!mainWindow?.webContents) {
       res.writeHead(503, { "Content-Type": "application/json" });
@@ -133,7 +139,7 @@ function startGatewayServer() {
           clearTimeout(timer);
           resolve({ status, payload });
         });
-        mainWindow.webContents.send("gateway-request", id, req.method, pathname, body);
+        mainWindow.webContents.send("gateway-request", id, req.method, pathname, body, apiKey);
       });
 
       res.writeHead(result.status, { "Content-Type": "application/json" });

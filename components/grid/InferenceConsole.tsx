@@ -51,6 +51,11 @@ import type { McpToolRoute } from "@/lib/mcp/client";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { getCitations } from "@/lib/scrape/citations";
 import { runAgentLoop } from "@/lib/tools/agent-loop";
+import {
+  getHybridSettings,
+  hybridChatCompletion,
+} from "@/lib/platform/hybrid";
+import { consumeQuota } from "@/lib/platform/client";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
 
@@ -73,6 +78,8 @@ export function InferenceConsole({
   agentMode = false,
   ttsEnabled = false,
   onTtsEnabledChange,
+  canSubmit = true,
+  meshCold = false,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
@@ -90,6 +97,8 @@ export function InferenceConsole({
   agentMode?: boolean;
   ttsEnabled?: boolean;
   onTtsEnabledChange?: (v: boolean) => void;
+  canSubmit?: boolean;
+  meshCold?: boolean;
 }) {
   const agentToolsOn =
     toolsEnabled || mcpEnabled || webEnabled || agentMode;
@@ -270,7 +279,7 @@ export function InferenceConsole({
   }
 
   async function submit(forcedText?: string) {
-    if (!thread || submitting) return;
+    if (!thread || submitting || !canSubmit) return;
     const text = (forcedText ?? prompt).trim();
     if (!text) return;
 
@@ -309,6 +318,29 @@ export function InferenceConsole({
         repetitionPenalty: thread.sampler.repetitionPenalty,
         jsonMode: thread.jsonMode,
       };
+
+      const hybrid = getHybridSettings();
+      if (meshCold && hybrid.enabled && hybrid.apiKey.trim()) {
+        const reply = await hybridChatCompletion(
+          messages.map((m) => ({ role: m.role, content: String(m.content) })),
+          hybrid,
+        );
+        void consumeQuota({ tokens: reply.length }).catch(() => {});
+        let next = appendMessage(thread, {
+          role: "user",
+          content: text,
+          image: attachImage ?? undefined,
+        });
+        next = appendMessage(next, {
+          role: "assistant",
+          content: thread.jsonMode ? formatMaybeJson(reply) : reply,
+        });
+        saveThread(next);
+        refreshThreads(next);
+        setPrompt("");
+        setAttachImage(null);
+        return;
+      }
 
       let jobId: string | null = null;
       if (isCustom) {
@@ -438,7 +470,10 @@ export function InferenceConsole({
   }
 
   const canSend =
-    !!prompt.trim() && !!thread && (!isCustom || !!customRepo.trim());
+    canSubmit &&
+    !!prompt.trim() &&
+    !!thread &&
+    (!isCustom || !!customRepo.trim());
 
   function onExport(id: string, format: "json" | "md" | "html") {
     const t = threads.find((x) => x.id === id);

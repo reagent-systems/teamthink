@@ -13,15 +13,27 @@
  * effectively nothing while still detecting disconnects.
  */
 
+import { PlatformDO } from "./platform-do";
+import {
+  appCheckOk,
+  corsJson,
+  DEFAULT_REMOTE_CONFIG,
+} from "./platform";
+
+export { PlatformDO };
+
 export interface Env {
   ROOMS: DurableObjectNamespace;
   REGISTRY: DurableObjectNamespace;
+  PLATFORM: DurableObjectNamespace;
+  AUTH_SECRET?: string;
 }
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers":
+    "content-type,authorization,x-teamthink-app-check,x-api-key",
 };
 
 const ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -40,6 +52,40 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
+    }
+
+    const platformPaths = [
+      "/auth/",
+      "/config",
+      "/rooms/",
+      "/api-keys",
+      "/orgs",
+      "/audit",
+      "/notifications",
+      "/quotas/",
+      "/artifacts",
+      "/triggers/",
+    ];
+    if (platformPaths.some((p) => url.pathname.startsWith(p) || url.pathname === p.replace(/\/$/, ""))) {
+      const config = DEFAULT_REMOTE_CONFIG;
+      if (!appCheckOk(request, config)) {
+        return corsJson({ error: "app check required" }, 403);
+      }
+      const stub = env.PLATFORM.get(env.PLATFORM.idFromName("global"));
+      const res = await stub.fetch(
+        new Request(`https://do${url.pathname}${url.search}`, {
+          method: request.method,
+          headers: request.headers,
+          body:
+            request.method === "GET" || request.method === "HEAD"
+              ? undefined
+              : await request.text(),
+        }),
+      );
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { "content-type": "application/json", ...CORS },
+      });
     }
 
     if (url.pathname === "/ws") {
@@ -61,6 +107,9 @@ export default {
     }
 
     if (url.pathname === "/scrape" && request.method === "POST") {
+      if (!appCheckOk(request, DEFAULT_REMOTE_CONFIG)) {
+        return json({ error: "app check required" }, 403);
+      }
       try {
         const body = (await request.json()) as { url?: string };
         if (!body.url) return json({ error: "url required" }, 400);
@@ -289,6 +338,28 @@ export class RoomDO {
       });
     } catch {
       // registry is best-effort; signaling still works without it
+    }
+    await this.mirrorPresence(room);
+  }
+
+  /** Server-backed presence mirror for clients that can't hold a full mesh. */
+  private async mirrorPresence(room: string): Promise<void> {
+    if (!("PLATFORM" in this.env)) return;
+    const env = this.env as Env;
+    const peers: { peer: string; at: number }[] = [];
+    for (const ws of this.state.getWebSockets()) {
+      const a = ws.deserializeAttachment() as Attach | null;
+      if (a?.peer) peers.push({ peer: a.peer, at: Date.now() });
+    }
+    try {
+      const stub = env.PLATFORM.get(env.PLATFORM.idFromName("global"));
+      await stub.fetch("https://do/rooms/" + room + "/presence", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ peers }),
+      });
+    } catch {
+      // best-effort
     }
   }
 }

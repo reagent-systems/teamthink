@@ -92,22 +92,22 @@ Give the mesh live-web eyes and hands so agents can search, scrape, and act.
 
 Add the managed-platform layer without abandoning the static-site core.
 
-45. `[ ]` **Authentication** — email magic link, Google/GitHub OAuth, anonymous guest → upgrade (Firebase Auth pattern).
-46. `[ ]` **RBAC for rooms** — owner / admin / member / viewer; compute-donor vs requester permissions.
-47. `[ ]` **Persistent room state** — optional Firestore / Durable Object snapshot so late joiners and reloads restore chat + tasks.
-48. `[ ]` **Realtime presence sync** — server-backed presence mirror for clients that can’t hold a full mesh.
-49. `[ ]` **Offline-first cache** — Cache API / IndexedDB for models, RAG chunks, and last-known Yjs snapshot; sync on reconnect.
-50. `[ ]` **Cloud Storage for artifacts** — optional uploads for large docs, images, export bundles (Firebase Storage shape).
-51. `[ ]` **Remote Config** — server-driven model allowlists, feature flags, default samplers without redeploying the static site.
-52. `[ ]` **App Check / abuse protection** — attest clients before they can create rooms or hit the OpenAI gateway.
-53. `[ ]` **Cloud Functions / Worker triggers** — on room create, model provision, scrape complete, quota exceeded.
-54. `[ ]` **Per-user rate limits & quotas** — tokens, scrape credits, room concurrency (Firebase AI Logic–style limits).
-55. `[ ]` **User profiles & API keys** — personal OpenAI-gateway keys, usage dashboard, revoke/rotate.
-56. `[ ]` **Team / org workspaces** — shared pools, billing seat model, SSO (SAML / OIDC) for enterprises.
-57. `[ ]` **Audit logging** — admin activity + inference access logs exportable to SIEM.
-58. `[ ]` **Push / email notifications** — room invite, job done, peer needed for shard, crawl finished.
-59. `[ ]` **Hybrid on-device + cloud fallback** — try mesh/WebGPU first; fall back to a cloud model provider when pool is cold (Firebase AI Logic hybrid pattern).
-60. `[ ]` **Admin console** — manage pools, models, users, Remote Config, and abuse reports.
+45. `[x]` **Authentication** — email magic link, Google/GitHub OAuth, anonymous guest → upgrade (Firebase Auth pattern).
+46. `[x]` **RBAC for rooms** — owner / admin / member / viewer; compute-donor vs requester permissions.
+47. `[x]` **Persistent room state** — optional Firestore / Durable Object snapshot so late joiners and reloads restore chat + tasks.
+48. `[x]` **Realtime presence sync** — server-backed presence mirror for clients that can’t hold a full mesh.
+49. `[x]` **Offline-first cache** — Cache API / IndexedDB for models, RAG chunks, and last-known Yjs snapshot; sync on reconnect.
+50. `[x]` **Cloud Storage for artifacts** — optional uploads for large docs, images, export bundles (Firebase Storage shape).
+51. `[x]` **Remote Config** — server-driven model allowlists, feature flags, default samplers without redeploying the static site.
+52. `[x]` **App Check / abuse protection** — attest clients before they can create rooms or hit the OpenAI gateway.
+53. `[x]` **Cloud Functions / Worker triggers** — on room create, model provision, scrape complete, quota exceeded.
+54. `[x]` **Per-user rate limits & quotas** — tokens, scrape credits, room concurrency (Firebase AI Logic–style limits).
+55. `[x]` **User profiles & API keys** — personal OpenAI-gateway keys, usage dashboard, revoke/rotate.
+56. `[x]` **Team / org workspaces** — shared pools, billing seat model, SSO (SAML / OIDC) for enterprises.
+57. `[x]` **Audit logging** — admin activity + inference access logs exportable to SIEM.
+58. `[x]` **Push / email notifications** — room invite, job done, peer needed for shard, crawl finished.
+59. `[x]` **Hybrid on-device + cloud fallback** — try mesh/WebGPU first; fall back to a cloud model provider when pool is cold (Firebase AI Logic hybrid pattern).
+60. `[x]` **Admin console** — manage pools, models, users, Remote Config, and abuse reports.
 
 ---
 

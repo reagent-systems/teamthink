@@ -12,6 +12,7 @@ import type {
   EmbeddingsRequest,
 } from "@/lib/gateway/openai-types";
 import type { MessagesRequest } from "@/lib/gateway/anthropic-types";
+import { validateGatewayKey } from "@/lib/platform/client";
 import type { GridNode } from "@/lib/grid/scheduler";
 
 declare global {
@@ -21,7 +22,13 @@ declare global {
       isDesktop: boolean;
       gateway?: {
         onRequest: (
-          cb: (id: string, method: string, path: string, body: unknown) => void,
+          cb: (
+            id: string,
+            method: string,
+            path: string,
+            body: unknown,
+            apiKey?: string | null,
+          ) => void,
         ) => (() => void) | void;
         respond: (id: string, status: number, body: unknown) => void;
         port?: number;
@@ -36,8 +43,14 @@ export function GatewayBridge({ node }: { node: GridNode }) {
     const gw = window.teamthinkDesktop?.gateway;
     if (!gw) return;
 
-    const unsub = gw.onRequest(async (id, method, path, body) => {
+    const unsub = gw.onRequest(async (id, method, path, body, apiKey) => {
       try {
+        if (!validateGatewayKey(apiKey ?? null)) {
+          gw.respond(id, 401, {
+            error: { message: "Invalid or missing API key" },
+          });
+          return;
+        }
         if (method === "GET" && path === "/v1/models") {
           gw.respond(id, 200, handleModelsList());
           return;

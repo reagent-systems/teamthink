@@ -8,8 +8,8 @@ contextBridge.exposeInMainWorld("teamthinkDesktop", {
   gateway: {
     port: GATEWAY_PORT,
     onRequest(cb) {
-      const listener = (_event, id, method, path, body) => {
-        void cb(id, method, path, body);
+      const listener = (_event, id, method, path, body, apiKey) => {
+        void cb(id, method, path, body, apiKey);
       };
       ipcRenderer.on("gateway-request", listener);
       return () => ipcRenderer.removeListener("gateway-request", listener);

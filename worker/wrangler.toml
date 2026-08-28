@@ -17,7 +17,15 @@ class_name = "RoomDO"
 name = "REGISTRY"
 class_name = "RegistryDO"
 
+[[durable_objects.bindings]]
+name = "PLATFORM"
+class_name = "PlatformDO"
+
 # SQLite-backed Durable Objects (free-tier eligible; no manual KV setup needed).
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomDO", "RegistryDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PlatformDO"]

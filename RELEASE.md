@@ -1,5 +1,57 @@
 # TeamThink Desktop Releases
 
+## v0.12.0 — Phase 3 complete: orgs, audit, notifications, hybrid, admin
+
+Finishes the Firebase-class platform layer.
+
+### What's new in 0.12.0
+
+#### 54–58, 60. Quotas, orgs, audit, notifications, admin
+
+- **Per-user quotas** — token, scrape, and room limits with usage dashboard in Profile
+- **Team workspaces** — create orgs from the profile panel
+- **Audit logging** — activity trail in `/admin` (auth, room join, API keys, config)
+- **Notifications** — in-session panel for room-ready, quota exceeded, and job events
+- **Admin console** — `/admin` for Remote Config feature flags and App Check toggle
+
+#### 59. Hybrid cloud fallback
+
+When the mesh is cold (solo peer or no loaded model), enable **Hybrid cloud fallback** with an OpenAI or Anthropic API key — chat routes to cloud instead of waiting for peers.
+
+---
+
+## v0.11.0 — Auth, RBAC, persistence, offline cache (Phase 3 start)
+
+Managed identity and room state without abandoning the static-site core.
+
+### What's new in 0.11.0
+
+#### 45. Authentication
+
+Sign in as guest, upgrade with email magic link, or use Google/GitHub OAuth stubs — tokens stored locally and sent to the Worker on platform calls.
+
+#### 46. RBAC for rooms
+
+Server-backed membership roles: owner, admin, member, viewer — with compute-donor vs request-only permissions enforced in the session UI.
+
+#### 47–49. Persistent room state & offline cache
+
+Chat threads and Yjs snapshots sync to the Platform Durable Object; IndexedDB caches last-known state for reloads and reconnect.
+
+#### 48. Server presence mirror
+
+Room DO mirrors WebSocket peer lists to platform storage for clients that can't hold a full mesh.
+
+#### 50–52. Artifacts, Remote Config, App Check
+
+Upload large artifacts to Worker storage; fetch feature flags from `/config`; optional App Check header attestation on platform and scrape routes.
+
+#### 53, 55. Worker triggers & API keys
+
+Room-create triggers notifications; create/revoke personal gateway API keys — desktop gateway validates `X-Api-Key` when keys exist.
+
+---
+
 ## v0.10.0 — Phase 2 complete: batch scrape, workspaces, Firecrawl, PII, watch
 
 Finishes Phase 2 web context tooling.

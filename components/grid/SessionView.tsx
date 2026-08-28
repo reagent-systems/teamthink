@@ -16,13 +16,25 @@ import { OnboardingTour } from "@/components/grid/OnboardingTour";
 import { PeerList } from "@/components/grid/PeerList";
 import { RecoveryBanner } from "@/components/grid/RecoveryBanner";
 import { TelemetryStrip } from "@/components/grid/TelemetryStrip";
+import { SignInPanel } from "@/components/auth/SignInPanel";
+import { ProfilePanel } from "@/components/platform/ProfilePanel";
+import { NotificationsPanel } from "@/components/platform/NotificationsPanel";
+import { HybridFallbackPanel } from "@/components/platform/HybridFallbackPanel";
 import type { McpToolRoute } from "@/lib/mcp/client";
 import type { RagSearchMode } from "@/lib/rag/store";
 import type { ToolDefinition } from "@/lib/tools/types";
 import { useGridNode } from "@/lib/grid/useGridNode";
+import { useRoomPlatform } from "@/hooks/useRoomPlatform";
+import { meshIsCold } from "@/lib/platform/hybrid";
 
 export function SessionView({ roomId }: { roomId: string }) {
   const { node, snapshot } = useGridNode(roomId);
+  const legacyRole =
+    snapshot.peers.find((p) => p.self)?.roomRole ?? "request";
+  const { membershipRole, permissions, remoteConfig } = useRoomPlatform(
+    roomId,
+    legacyRole,
+  );
   const [pickModelId, setPickModelId] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
   const [ragEnabled, setRagEnabled] = useState(false);
@@ -34,10 +46,17 @@ export function SessionView({ roomId }: { roomId: string }) {
     () => new Map(),
   );
   const [ttsEnabled, setTtsEnabled] = useState(false);
-  const [webEnabled, setWebEnabled] = useState(false);
-  const [agentMode, setAgentMode] = useState(false);
+  const [webEnabled, setWebEnabled] = useState(
+    () => remoteConfig?.featureFlags.webTools ?? true,
+  );
+  const [agentMode, setAgentMode] = useState(
+    () => remoteConfig?.featureFlags.agentMode ?? false,
+  );
+
+  const meshCold = meshIsCold(snapshot.peers.length, !!snapshot.provisioned);
 
   function selectModel(id: string, hfRepo: string) {
+    if (!permissions.canProvision) return;
     setPickModelId(id);
     setRegistryVersion((v) => v + 1);
     void node.provision(id, hfRepo);
@@ -47,12 +66,24 @@ export function SessionView({ roomId }: { roomId: string }) {
     <main className="flex-1">
       <GatewayBridge node={node} />
       <OnboardingTour />
-      <InviteBar roomId={roomId} connected={snapshot.connected} node={node} />
+      <InviteBar
+        roomId={roomId}
+        connected={snapshot.connected}
+        node={node}
+        membershipRole={membershipRole}
+        canInvite={permissions.canInvite}
+      />
 
       <div className="mx-auto grid max-w-6xl gap-5 px-6 py-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-5">
           <TelemetryStrip snapshot={snapshot} />
           <RecoveryBanner node={node} snapshot={snapshot} />
+          <SignInPanel />
+          <ProfilePanel membershipRole={membershipRole} />
+          <NotificationsPanel />
+          {(remoteConfig?.hybridFallbackEnabled ?? true) && (
+            <HybridFallbackPanel meshCold={meshCold} />
+          )}
           <ModelPanel node={node} snapshot={snapshot} />
           <ModelBrowser
             snapshot={snapshot}
@@ -66,23 +97,27 @@ export function SessionView({ roomId }: { roomId: string }) {
             ragSearchMode={ragSearchMode}
             onRagSearchModeChange={setRagSearchMode}
           />
+          {(remoteConfig?.featureFlags.webTools ?? true) && (
+            <WebToolsPanel
+              roomId={roomId}
+              webEnabled={webEnabled}
+              onWebEnabledChange={setWebEnabled}
+              agentMode={agentMode}
+              onAgentModeChange={setAgentMode}
+            />
+          )}
+          {(remoteConfig?.featureFlags.mcp ?? true) && (
+            <McpPanel
+              roomId={roomId}
+              enabled={mcpEnabled}
+              onEnabledChange={setMcpEnabled}
+              onToolsChange={(tools, routes) => {
+                setMcpTools(tools);
+                setMcpRoutes(routes);
+              }}
+            />
+          )}
           <ToolsPanel enabled={toolsEnabled} onEnabledChange={setToolsEnabled} />
-          <McpPanel
-            roomId={roomId}
-            enabled={mcpEnabled}
-            onEnabledChange={setMcpEnabled}
-            onToolsChange={(tools, routes) => {
-              setMcpTools(tools);
-              setMcpRoutes(routes);
-            }}
-          />
-          <WebToolsPanel
-            roomId={roomId}
-            webEnabled={webEnabled}
-            onWebEnabledChange={setWebEnabled}
-            agentMode={agentMode}
-            onAgentModeChange={setAgentMode}
-          />
           <KnowledgeBasePanel roomId={roomId} />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
@@ -106,6 +141,8 @@ export function SessionView({ roomId }: { roomId: string }) {
             agentMode={agentMode}
             ttsEnabled={ttsEnabled}
             onTtsEnabledChange={setTtsEnabled}
+            canSubmit={permissions.canSubmitPrompt}
+            meshCold={meshCold}
           />
         </div>
       </div>

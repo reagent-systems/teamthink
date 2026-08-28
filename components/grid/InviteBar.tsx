@@ -11,14 +11,21 @@ import {
 } from "@/lib/session/profile";
 import type { GridNode } from "@/lib/grid/scheduler";
 
+import type { MembershipRole } from "@/lib/rbac/policy";
+import { labelForRole } from "@/lib/rbac/policy";
+
 export function InviteBar({
   roomId,
   connected,
   node,
+  membershipRole,
+  canInvite = true,
 }: {
   roomId: string;
   connected: boolean;
   node?: GridNode;
+  membershipRole?: MembershipRole;
+  canInvite?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState(() => getDisplayName());
@@ -62,6 +69,9 @@ export function InviteBar({
         <Badge tone={connected ? "positive" : "neutral"} dot>
           {connected ? "connected" : "waiting for peers"}
         </Badge>
+        {membershipRole && (
+          <Badge tone="neutral">{labelForRole(membershipRole)}</Badge>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -74,17 +84,21 @@ export function InviteBar({
           className="h-9 w-28 rounded-lg border border-border bg-canvas px-2 text-sm text-ink outline-none focus:border-accent sm:w-36"
           aria-label="Display name"
         />
-        <code className="hidden max-w-[200px] truncate rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-ink-muted lg:block">
-          {roomId}
-        </code>
-        <Button size="sm" variant="secondary" onClick={() => setShowQr((v) => !v)}>
-          {showQr ? "Hide QR" : "QR join"}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={copy}>
-          {copied ? "Copied" : "Copy invite"}
-        </Button>
+        {canInvite && (
+          <>
+            <code className="hidden max-w-[200px] truncate rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-ink-muted lg:block">
+              {roomId}
+            </code>
+            <Button size="sm" variant="secondary" onClick={() => setShowQr((v) => !v)}>
+              {showQr ? "Hide QR" : "QR join"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={copy}>
+              {copied ? "Copied" : "Copy invite"}
+            </Button>
+          </>
+        )}
       </div>
-      {showQr && (
+      {showQr && canInvite && (
         <div className="flex w-full items-center gap-4 border-t border-border pt-3 sm:w-auto sm:border-0 sm:pt-0">
           <InviteQr url={inviteUrl} />
           <p className="max-w-xs text-xs text-ink-muted">
