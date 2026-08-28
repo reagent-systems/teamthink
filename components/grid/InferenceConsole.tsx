@@ -19,6 +19,7 @@ import {
 import {
   appendMessage,
   buildRunMessages,
+  clearThreadMessages,
   createThread,
   deleteCustomPreset,
   ensureActiveThread,
@@ -28,6 +29,7 @@ import {
   saveCustomPreset,
   saveThread,
   setActiveThreadId,
+  truncateBeforeMessage,
   updateAssistantByJob,
 } from "@/lib/chat/storage";
 import {
@@ -37,11 +39,7 @@ import {
 } from "@/lib/chat/types";
 import { getModel, SHARDED_MODELS } from "@/lib/config";
 import type { GridNode } from "@/lib/grid/scheduler";
-import type {
-  GridSnapshot,
-  PipelineStatus,
-  ProvisionedView,
-} from "@/lib/grid/types";
+import type { GridSnapshot } from "@/lib/grid/types";
 
 const CUSTOM = "__custom__";
 
@@ -71,6 +69,8 @@ export function InferenceConsole({
   );
   const [showArchived, setShowArchived] = useState(false);
   const [showSampler, setShowSampler] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [presets, setPresets] = useState(() =>
     typeof window === "undefined" ? [] : listPresets(),
   );
@@ -157,10 +157,16 @@ export function InferenceConsole({
     });
   }
 
-  function submit() {
+  function submit(forcedText?: string) {
     if (!thread) return;
-    const text = prompt.trim();
+    const text = (forcedText ?? prompt).trim();
     if (!text) return;
+
+    if (text.startsWith("/")) {
+      handleSlash(text);
+      setPrompt("");
+      return;
+    }
 
     if (isCustom) {
       const repo = customRepo.trim();
@@ -188,11 +194,71 @@ export function InferenceConsole({
     next = {
       ...next,
       modelId: isCustom ? customRepo.trim() : modelId,
-      updatedAt: Date.now(),
     };
     saveThread(next);
     refreshThreads(next);
     setPrompt("");
+  }
+
+  function handleSlash(text: string) {
+    const [cmd, ...rest] = text.slice(1).trim().split(/\s+/);
+    const arg = rest.join(" ").trim();
+    switch (cmd.toLowerCase()) {
+      case "clear":
+        refreshThreads(clearThreadMessages(thread!));
+        break;
+      case "stop":
+        node.stopCurrentJob();
+        break;
+      case "model": {
+        const id = arg || SHARDED_MODELS[0]?.id;
+        if (!id) break;
+        if (id === CUSTOM || getModel(id)) {
+          setModelId(id);
+          patchThread({ modelId: id });
+          provisionedRef.current = "";
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  function regenerateFrom(userText: string) {
+    if (!thread) return;
+    const messages = buildRunMessages(thread, userText);
+    const jobId = node.runPrompt(messages, {
+      temperature: thread.sampler.temperature,
+      topP: thread.sampler.topP,
+      topK: thread.sampler.topK,
+      maxTokens: thread.sampler.maxTokens,
+      seed: thread.sampler.seed,
+      stopSequences: thread.sampler.stopSequences,
+      repetitionPenalty: thread.sampler.repetitionPenalty,
+      jsonMode: thread.jsonMode,
+    });
+    if (!jobId) return;
+    let next = appendMessage(thread, { role: "user", content: userText });
+    next = appendMessage(next, { role: "assistant", content: "", jobId });
+    saveThread(next);
+    refreshThreads(next);
+  }
+
+  function startEdit(messageId: string, content: string) {
+    setEditingId(messageId);
+    setEditDraft(content);
+  }
+
+  function commitEdit(messageId: string) {
+    if (!thread) return;
+    const trimmed = editDraft.trim();
+    if (!trimmed) return;
+    const { thread: trimmedThread } = truncateBeforeMessage(thread, messageId);
+    setEditingId(null);
+    setEditDraft("");
+    refreshThreads(trimmedThread);
+    regenerateFrom(trimmed);
   }
 
   const canSend =
@@ -397,8 +463,6 @@ export function InferenceConsole({
             />
           )}
 
-          {provisioned && <ProvisionedStatus provisioned={provisioned} />}
-
           <div className="flex gap-2">
             <textarea
               value={prompt}
@@ -407,10 +471,10 @@ export function InferenceConsole({
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
               }}
               rows={2}
-              placeholder="Ask the grid something… (⌘/Ctrl + Enter)"
+              placeholder="Ask the grid… (⌘/Ctrl+Enter · /model /clear /stop)"
               className="flex-1 resize-none rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-subtle focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
-            <Button onClick={submit} disabled={!canSend}>
+            <Button onClick={() => submit()} disabled={!canSend}>
               Send
             </Button>
           </div>
@@ -442,13 +506,60 @@ export function InferenceConsole({
                     <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
                       {m.role}
                     </span>
-                    {pipe?.tokensPerSec != null && (
-                      <span className="text-[11px] tabular-nums text-ink-subtle">
-                        {pipe.tokensPerSec.toFixed(1)} tok/s
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {m.role === "user" && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-ink-subtle hover:text-ink"
+                          onClick={() => startEdit(m.id, m.content)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {m.role === "assistant" && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-ink-subtle hover:text-ink"
+                          onClick={() => {
+                            const { thread: trimmed, userText } =
+                              truncateBeforeMessage(thread!, m.id);
+                            if (!userText) return;
+                            refreshThreads(trimmed);
+                            regenerateFrom(userText);
+                          }}
+                        >
+                          Regenerate
+                        </button>
+                      )}
+                      {pipe?.tokensPerSec != null && (
+                        <span className="text-[11px] tabular-nums text-ink-subtle">
+                          {pipe.tokensPerSec.toFixed(1)} tok/s
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {m.role === "assistant" ? (
+                  {m.role === "user" && editingId === m.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        rows={2}
+                        className="w-full resize-none rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => commitEdit(m.id)}>
+                          Save & rerun
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : m.role === "assistant" ? (
                     display || streaming ? (
                       <MarkdownMessage text={display} streaming={streaming} />
                     ) : (
@@ -476,70 +587,3 @@ export function InferenceConsole({
     </div>
   );
 }
-
-function ProvisionedStatus({ provisioned }: { provisioned: ProvisionedView }) {
-  const model = getModel(provisioned.modelId);
-  const label = model?.label ?? provisioned.repo ?? provisioned.modelId;
-  const pct = provisioned.progress
-    ? Math.round(provisioned.progress.progress * 100)
-    : null;
-  return (
-    <div className="rounded-xl border border-border bg-surface-sunken p-3">
-      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
-        <div className="flex items-center gap-2">
-          <Badge tone="accent">{label}</Badge>
-          <span>
-            {provisioned.readyCount}/{provisioned.numShards || 1} shards
-          </span>
-        </div>
-        <Badge tone={pipelineTone[provisioned.status]} dot>
-          {provisioned.status}
-        </Badge>
-      </div>
-      {provisioned.status === "error" && provisioned.error && (
-        <p className="mt-2 text-xs text-danger">{provisioned.error}</p>
-      )}
-      {provisioned.progress && pct != null && provisioned.status !== "error" && (
-        <div className="mt-2">
-          <div className="mb-1 flex justify-between text-[11px] text-ink-subtle">
-            <span className="truncate">
-              {provisioned.progress.text || "warming"}
-            </span>
-            <span className="tabular-nums">{pct}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-surface">
-            <div
-              className="h-full rounded-full bg-accent transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      )}
-      {provisioned.shards.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-ink-subtle">
-          {provisioned.shards.map((s, i) => (
-            <span
-              key={i}
-              className="rounded-md border border-border bg-surface px-1.5 py-0.5 tabular-nums"
-            >
-              {s.peerId.slice(0, 6)} · L{s.layerStart}–{s.layerEnd - 1}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const pipelineTone: Record<
-  PipelineStatus,
-  "neutral" | "accent" | "positive" | "warning" | "danger"
-> = {
-  planning: "warning",
-  warming: "warning",
-  ready: "positive",
-  queued: "neutral",
-  running: "accent",
-  done: "positive",
-  error: "danger",
-};

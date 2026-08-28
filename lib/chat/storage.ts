@@ -148,6 +148,48 @@ export function updateAssistantByJob(
   return next;
 }
 
+export function clearThreadMessages(thread: ChatThread): ChatThread {
+  const next = { ...thread, messages: [], updatedAt: Date.now() };
+  saveThread(next);
+  return next;
+}
+
+export function truncateBeforeMessage(
+  thread: ChatThread,
+  messageId: string,
+): { thread: ChatThread; userText: string | null } {
+  const idx = thread.messages.findIndex((m) => m.id === messageId);
+  if (idx < 0) return { thread, userText: null };
+  let userIdx = idx;
+  if (thread.messages[idx]?.role === "assistant") {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (thread.messages[i]?.role === "user") {
+        userIdx = i;
+        break;
+      }
+    }
+  }
+  const userMsg = thread.messages[userIdx];
+  const userText = userMsg?.role === "user" ? userMsg.content : null;
+  const messages = thread.messages.slice(0, userIdx);
+  const next = { ...thread, messages, updatedAt: Date.now() };
+  saveThread(next);
+  return { thread: next, userText };
+}
+
+export function updateUserMessage(
+  thread: ChatThread,
+  messageId: string,
+  content: string,
+): ChatThread {
+  const messages = thread.messages.map((m) =>
+    m.id === messageId && m.role === "user" ? { ...m, content } : m,
+  );
+  const next = { ...thread, messages, updatedAt: Date.now() };
+  saveThread(next);
+  return next;
+}
+
 export function listPresets(): PromptPreset[] {
   const custom = readJson<PromptPreset[]>(PRESETS_KEY, []);
   const byId = new Map<string, PromptPreset>();

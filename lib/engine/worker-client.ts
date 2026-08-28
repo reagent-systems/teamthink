@@ -84,6 +84,15 @@ export class InferenceClient {
     });
   }
 
+  cancelPending(): void {
+    for (const [, p] of this.pending) {
+      p.reject(new Error("cancelled"));
+    }
+    this.pending.clear();
+    this.worker?.terminate();
+    this.worker = null;
+  }
+
   unload(): Promise<void> {
     const reqId = this.nextId();
     return new Promise<void>((resolve, reject) => {

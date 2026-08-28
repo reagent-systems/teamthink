@@ -2,7 +2,22 @@
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import type { PeerPresence } from "@/lib/grid/types";
+import type { PeerPresence, RoomRole } from "@/lib/grid/types";
+
+const roleTone: Record<
+  RoomRole,
+  "neutral" | "accent" | "positive" | "warning"
+> = {
+  owner: "accent",
+  compute: "positive",
+  request: "neutral",
+};
+
+const roleLabel: Record<RoomRole, string> = {
+  owner: "owner",
+  compute: "compute",
+  request: "request-only",
+};
 
 export function PeerList({ peers }: { peers: PeerPresence[] }) {
   return (
@@ -18,20 +33,26 @@ export function PeerList({ peers }: { peers: PeerPresence[] }) {
             className="flex items-center justify-between rounded-xl border border-border bg-surface-sunken px-4 py-3"
           >
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-ink">
-                  {p.peerId.slice(0, 8)}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate text-sm text-ink">
+                  {p.displayName || p.peerId.slice(0, 8)}
                 </span>
                 {p.self && <Badge tone="accent">you</Badge>}
+                {p.roomRole && (
+                  <Badge tone={roleTone[p.roomRole]}>{roleLabel[p.roomRole]}</Badge>
+                )}
                 <Badge tone={p.caps.webgpu ? "positive" : "neutral"} dot>
-                  {p.caps.webgpu ? "compute" : "consume"}
+                  {p.caps.webgpu ? "GPU" : "CPU"}
                 </Badge>
+              </div>
+              <div className="mt-1 truncate font-mono text-[11px] text-ink-subtle">
+                {p.peerId.slice(0, 12)}
               </div>
               <div className="mt-1 truncate text-xs text-ink-muted">
                 {p.caps.webgpu
                   ? `${p.caps.gpuVendor ?? "GPU"} · ~${formatMb(
                       p.caps.memoryEstimateMb,
-                    )} · ${p.loadedModels.length} model(s) loaded`
+                    )} · ${p.loadedModels.length} model(s)`
                   : "no WebGPU — request-only"}
               </div>
             </div>

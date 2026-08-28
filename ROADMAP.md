@@ -32,13 +32,13 @@ Ship the product people expect when they open a local / mesh AI app.
 3. `[x]` **Sampler control panel** — temperature, top-p, top-k, repetition penalty, presence/frequency penalty, stop sequences, seed.
 4. `[x]` **Structured / JSON output mode** — constrained decoding or schema-guided generation for agent pipelines.
 5. `[x]` **Streaming UX upgrades** — token-level markdown rendering, code blocks with copy, thinking/reasoning collapse for CoT models.
-6. `[ ]` **Model load / unload lifecycle UI** — progress, cancel, VRAM meter, “keep warm” vs “evict on idle” policies.
-7. `[ ]` **Keyboard-first chat** — Cmd/Ctrl+Enter send, slash commands (`/model`, `/clear`, `/stop`), message edit & regenerate.
-8. `[ ]` **Invite & room UX** — short room codes, QR join, guest display names, role badges (owner / compute / request-only).
-9. `[ ]` **Capability dashboard** — WebGPU adapter info, shader-f16, estimated VRAM, CPU fallback badge, NAT/TURN status.
-10. `[ ]` **Session telemetry strip** — tokens/sec, queue depth, peer RTT, shard hop latency (Petals-style health at a glance).
-11. `[ ]` **Error recovery playbook** — auto-retry failed claims, stale-task reclaim UX, clear “peer left mid-shard” messaging.
-12. `[ ]` **Onboarding tour** — first-run flow: create room → invite peer → pick model → first completion.
+6. `[x]` **Model load / unload lifecycle UI** — progress, cancel, VRAM meter, “keep warm” vs “evict on idle” policies.
+7. `[x]` **Keyboard-first chat** — Cmd/Ctrl+Enter send, slash commands (`/model`, `/clear`, `/stop`), message edit & regenerate.
+8. `[x]` **Invite & room UX** — short room codes, QR join, guest display names, role badges (owner / compute / request-only).
+9. `[x]` **Capability dashboard** — WebGPU adapter info, shader-f16, estimated VRAM, CPU fallback badge, NAT/TURN status.
+10. `[x]` **Session telemetry strip** — tokens/sec, queue depth, peer RTT, shard hop latency (Petals-style health at a glance).
+11. `[x]` **Error recovery playbook** — auto-retry failed claims, stale-task reclaim UX, clear “peer left mid-shard” messaging.
+12. `[x]` **Onboarding tour** — first-run flow: create room → invite peer → pick model → first completion.
 
 ---
 
