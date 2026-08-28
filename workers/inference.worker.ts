@@ -8,6 +8,7 @@ import type {
   WorkerResponse,
 } from "@/lib/engine/types";
 import { WebLLMEngine } from "@/lib/engine/webllm";
+import { GgufEngine } from "@/lib/engine/gguf";
 import type { WebGPUShardRunner } from "@/lib/engine/shard/webgpu-shard-runner";
 import type { ArchDescriptor } from "@/lib/engine/hf/config";
 import type { ShardRange } from "@/lib/engine/shard/model-descriptor";
@@ -24,7 +25,9 @@ const engines: Partial<Record<InferenceEngine["kind"], InferenceEngine>> = {};
 function engineFor(kind: InferenceEngine["kind"]): InferenceEngine {
   let engine = engines[kind];
   if (!engine) {
-    engine = kind === "webllm" ? new WebLLMEngine() : new TransformersEngine();
+    if (kind === "webllm") engine = new WebLLMEngine();
+    else if (kind === "gguf") engine = new GgufEngine();
+    else engine = new TransformersEngine();
     engines[kind] = engine;
   }
   return engine;
@@ -144,6 +147,13 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       const engine = engineFor(model.engine) as TransformersEngine;
       const vectors = await engine.embed(model, req.texts);
       post({ type: "embedDone", reqId: req.reqId, vectors });
+    } else if (req.type === "transcribe") {
+      const model = getModel(req.modelId);
+      if (!model) throw new Error(`unknown model ${req.modelId}`);
+      const engine = engineFor(model.engine) as TransformersEngine;
+      const audio = new Float32Array(req.audio);
+      const text = await engine.transcribe(model, audio);
+      post({ type: "transcribeDone", reqId: req.reqId, text });
     }
   } catch (err) {
     post({

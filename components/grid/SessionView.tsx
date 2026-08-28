@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DocumentPanel } from "@/components/rag/DocumentPanel";
 import { ToolsPanel } from "@/components/tools/ToolsPanel";
+import { McpPanel } from "@/components/mcp/McpPanel";
 import { GatewayBridge } from "@/components/gateway/GatewayBridge";
 import { CapabilityPanel } from "@/components/grid/CapabilityPanel";
 import { InferenceConsole } from "@/components/grid/InferenceConsole";
@@ -13,7 +14,9 @@ import { OnboardingTour } from "@/components/grid/OnboardingTour";
 import { PeerList } from "@/components/grid/PeerList";
 import { RecoveryBanner } from "@/components/grid/RecoveryBanner";
 import { TelemetryStrip } from "@/components/grid/TelemetryStrip";
+import type { McpToolRoute } from "@/lib/mcp/client";
 import type { RagSearchMode } from "@/lib/rag/store";
+import type { ToolDefinition } from "@/lib/tools/types";
 import { useGridNode } from "@/lib/grid/useGridNode";
 
 export function SessionView({ roomId }: { roomId: string }) {
@@ -23,6 +26,12 @@ export function SessionView({ roomId }: { roomId: string }) {
   const [ragEnabled, setRagEnabled] = useState(false);
   const [ragSearchMode, setRagSearchMode] = useState<RagSearchMode>("hybrid");
   const [toolsEnabled, setToolsEnabled] = useState(false);
+  const [mcpEnabled, setMcpEnabled] = useState(false);
+  const [mcpTools, setMcpTools] = useState<ToolDefinition[]>([]);
+  const [mcpRoutes, setMcpRoutes] = useState<Map<string, McpToolRoute>>(
+    () => new Map(),
+  );
+  const [ttsEnabled, setTtsEnabled] = useState(false);
 
   function selectModel(id: string, hfRepo: string) {
     setPickModelId(id);
@@ -54,6 +63,15 @@ export function SessionView({ roomId }: { roomId: string }) {
             onRagSearchModeChange={setRagSearchMode}
           />
           <ToolsPanel enabled={toolsEnabled} onEnabledChange={setToolsEnabled} />
+          <McpPanel
+            roomId={roomId}
+            enabled={mcpEnabled}
+            onEnabledChange={setMcpEnabled}
+            onToolsChange={(tools, routes) => {
+              setMcpTools(tools);
+              setMcpRoutes(routes);
+            }}
+          />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>
@@ -69,6 +87,11 @@ export function SessionView({ roomId }: { roomId: string }) {
             ragEnabled={ragEnabled}
             ragSearchMode={ragSearchMode}
             toolsEnabled={toolsEnabled}
+            mcpEnabled={mcpEnabled}
+            mcpTools={mcpTools}
+            mcpRoutes={mcpRoutes}
+            ttsEnabled={ttsEnabled}
+            onTtsEnabledChange={setTtsEnabled}
           />
         </div>
       </div>

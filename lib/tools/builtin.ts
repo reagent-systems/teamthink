@@ -1,4 +1,5 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from "@/lib/tools/types";
+import { mcpCallTool } from "@/lib/mcp/client";
 
 export const BUILTIN_TOOLS: ToolDefinition[] = [
   {
@@ -64,6 +65,11 @@ export async function runTool(
   call: ToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
+  const mcp = ctx.mcpRoutes?.get(call.name);
+  if (mcp) {
+    const output = await mcpCallTool(mcp.serverUrl, call.name, call.arguments);
+    return { name: call.name, output: output || "(empty)" };
+  }
   switch (call.name) {
     case "rag_search": {
       const query = String(call.arguments.query ?? "");

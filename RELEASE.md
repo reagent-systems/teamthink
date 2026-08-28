@@ -1,5 +1,25 @@
 # TeamThink Desktop Releases
 
+## v0.8.0 — WASM CPU models, audio I/O, MCP client (Phase 1 complete)
+
+Finishes Phase 1: GGUF-class WASM inference, Whisper STT + browser TTS, and MCP tool servers in the session.
+
+### What's new in 0.8.0
+
+#### 15. GGUF / WASM CPU path
+
+You lack WebGPU or want a low-VRAM fallback. Pick **Qwen2.5 0.5B (WASM CPU)** or **SmolLM2 360M (WASM CPU)** — Transformers.js ONNX models on the WASM backend via the `gguf` engine.
+
+#### 19. Audio I/O
+
+You want hands-free chat. Use **Mic** in the inference console for Whisper Tiny transcription, and enable **Read replies aloud** for browser text-to-speech on completed assistant messages.
+
+#### 22. MCP client
+
+You have MCP tool servers. Connect an HTTP MCP endpoint in **MCP servers**, enable **MCP tools**, and remote tools merge into the agent loop alongside built-in helpers.
+
+---
+
 ## v0.7.0 — Anthropic Messages API + TypeScript/Python SDKs
 
 Claude-shaped clients and scriptable SDKs for the local gateway.

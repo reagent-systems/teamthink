@@ -50,9 +50,9 @@ export const POOLS_URL = SIGNAL_WS_URL
 export const SIGNAL_RECONNECT_MIN_MS = 1000;
 export const SIGNAL_RECONNECT_MAX_MS = 15000;
 
-export type EngineKind = "webllm" | "transformers";
+export type EngineKind = "webllm" | "transformers" | "gguf";
 
-export type ModelModality = "text" | "vision" | "embedding";
+export type ModelModality = "text" | "vision" | "embedding" | "audio";
 
 export interface ModelSpec {
   /** Stable id used in task routing and CRDT state. */
@@ -219,6 +219,30 @@ export const MODELS: ModelSpec[] = [
     modelId: "Xenova/all-MiniLM-L6-v2",
     vramMb: 200,
   },
+  {
+    id: "whisper-tiny-en",
+    label: "Whisper Tiny (STT)",
+    engine: "transformers",
+    modality: "audio",
+    modelId: "Xenova/whisper-tiny.en",
+    vramMb: 120,
+  },
+  {
+    id: "qwen2.5-0.5b-wasm",
+    label: "Qwen2.5 0.5B (WASM CPU)",
+    engine: "gguf",
+    modality: "text",
+    modelId: "onnx-community/Qwen2.5-0.5B-Instruct",
+    vramMb: 0,
+  },
+  {
+    id: "smollm2-360m-wasm",
+    label: "SmolLM2 360M (WASM CPU)",
+    engine: "gguf",
+    modality: "text",
+    modelId: "HuggingFaceTB/SmolLM2-360M-Instruct",
+    vramMb: 0,
+  },
 ];
 
 /**
@@ -292,3 +316,4 @@ export function getModel(id: string): ModelSpec | undefined {
 
 export const DEFAULT_MODEL_ID = "smollm2-360m";
 export const DEFAULT_EMBEDDING_MODEL_ID = "minilm-l6";
+export const DEFAULT_STT_MODEL_ID = "whisper-tiny-en";

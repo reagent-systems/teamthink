@@ -1,4 +1,4 @@
-import type { ModelSpec } from "@/lib/config";
+import type { EngineKind, ModelSpec } from "@/lib/config";
 import type {
   ChatMessage,
   GenerateOptions,
@@ -63,13 +63,19 @@ type TransformersModule = {
 };
 
 export class TransformersEngine implements InferenceEngine {
-  readonly kind = "transformers" as const;
+  readonly kind: EngineKind = "transformers";
   private loadedModelId: string | null = null;
   private tf: TransformersModule | null = null;
 
   private textPipe: TextPipe | null = null;
   private embedPipe: TextPipe | null = null;
+  private asrPipe: TextPipe | null = null;
   private vlm: { processor: Processor; model: VlmModel } | null = null;
+
+  /** Override in GgufEngine for WASM CPU inference. */
+  protected inferDevice(): "webgpu" | "wasm" {
+    return "webgpu";
+  }
 
   private async module(): Promise<TransformersModule> {
     if (!this.tf) {
@@ -99,13 +105,23 @@ export class TransformersEngine implements InferenceEngine {
       });
 
     try {
+      const device = this.inferDevice();
       if (model.modality === "embedding") {
         this.embedPipe = await tf.pipeline(
           "feature-extraction",
           model.modelId,
           {
-            device: "webgpu",
+            device,
             dtype: "fp32",
+            progress_callback,
+          },
+        );
+      } else if (model.modality === "audio") {
+        this.asrPipe = await tf.pipeline(
+          "automatic-speech-recognition",
+          model.modelId,
+          {
+            device: "wasm",
             progress_callback,
           },
         );
@@ -123,8 +139,8 @@ export class TransformersEngine implements InferenceEngine {
         this.vlm = { processor, model: vlmModel };
       } else {
         this.textPipe = await tf.pipeline("text-generation", model.modelId, {
-          device: "webgpu",
-          dtype: "q4",
+          device,
+          dtype: device === "wasm" ? "q8" : "q4",
           progress_callback,
         });
       }
@@ -227,6 +243,19 @@ export class TransformersEngine implements InferenceEngine {
     return sink.text;
   }
 
+  /** Transcribe 16 kHz mono WAV/Float32 audio to text (Whisper-class STT). */
+  async transcribe(model: ModelSpec, audio: Float32Array): Promise<string> {
+    if (this.loadedModelId !== model.modelId || !this.asrPipe) {
+      await this.load(model, () => {});
+    }
+    const pipe = this.asrPipe!;
+    const out = (await pipe(audio, { chunk_length_s: 30, stride_length_s: 5 })) as
+      | { text?: string }
+      | { text?: string }[];
+    if (Array.isArray(out)) return out.map((x) => x.text ?? "").join(" ").trim();
+    return (out.text ?? "").trim();
+  }
+
   /** Mean-pooled, L2-normalized embedding vectors (OpenAI /v1/embeddings shape). */
   async embed(model: ModelSpec, texts: string[]): Promise<number[][]> {
     if (this.loadedModelId !== model.modelId || !this.embedPipe) {
@@ -245,12 +274,14 @@ export class TransformersEngine implements InferenceEngine {
     try {
       await this.textPipe?.dispose?.();
       await this.embedPipe?.dispose?.();
+      await this.asrPipe?.dispose?.();
       await this.vlm?.model.dispose?.();
     } catch {
       // ignore
     }
     this.textPipe = null;
     this.embedPipe = null;
+    this.asrPipe = null;
     this.vlm = null;
     this.loadedModelId = null;
   }

@@ -17,4 +17,5 @@ export interface ToolResult {
 export interface ToolContext {
   roomId: string;
   ragSearch: (query: string) => Promise<string>;
+  mcpRoutes?: Map<string, { serverUrl: string; definition: ToolDefinition }>;
 }

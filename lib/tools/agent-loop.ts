@@ -8,7 +8,7 @@ import {
   runTool,
   toolsSystemPrompt,
 } from "@/lib/tools/builtin";
-import type { ToolContext } from "@/lib/tools/types";
+import type { ToolContext, ToolDefinition } from "@/lib/tools/types";
 import { waitForJobText } from "@/lib/grid/prompt-dispatch";
 
 export interface AgentSampler {
@@ -52,11 +52,13 @@ export async function runAgentLoop(
   sampler: AgentSampler,
   toolsEnabled: boolean,
   toolCtx: ToolContext,
+  extraTools: ToolDefinition[] = [],
 ): Promise<AgentRunResult | null> {
+  const allTools = [...BUILTIN_TOOLS, ...extraTools];
   let messages = [...baseMessages];
   if (toolsEnabled) {
     const systemIdx = messages.findIndex((m) => m.role === "system");
-    const toolsBlock = toolsSystemPrompt(BUILTIN_TOOLS);
+    const toolsBlock = toolsSystemPrompt(allTools);
     if (systemIdx >= 0) {
       messages = messages.map((m, i) =>
         i === systemIdx

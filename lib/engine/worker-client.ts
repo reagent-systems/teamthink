@@ -40,7 +40,13 @@ interface PendingEmbed {
   reject: (e: Error) => void;
 }
 
-type Pending = PendingLoad | PendingGenerate | PendingShardRun | PendingEmbed;
+interface PendingTranscribe {
+  type: "transcribe";
+  resolve: (v: string) => void;
+  reject: (e: Error) => void;
+}
+
+type Pending = PendingLoad | PendingGenerate | PendingShardRun | PendingEmbed | PendingTranscribe;
 
 export class InferenceClient {
   private worker: Worker | null = null;
@@ -165,6 +171,20 @@ export class InferenceClient {
     });
   }
 
+  /** Whisper-class speech-to-text (16 kHz mono float32 samples). */
+  transcribe(modelId: string, audio: Float32Array): Promise<string> {
+    const reqId = this.nextId();
+    const copy = new Float32Array(audio);
+    const buf = copy.buffer;
+    return new Promise<string>((resolve, reject) => {
+      this.pending.set(reqId, { type: "transcribe", resolve, reject });
+      this.postRequest(
+        { type: "transcribe", reqId, modelId, audio: buf },
+        [buf],
+      );
+    });
+  }
+
   terminate(): void {
     this.worker?.terminate();
     this.worker = null;
@@ -212,6 +232,12 @@ export class InferenceClient {
       case "embedDone":
         if (p.type === "embed") {
           p.resolve(msg.vectors);
+          this.pending.delete(msg.reqId);
+        }
+        break;
+      case "transcribeDone":
+        if (p.type === "transcribe") {
+          p.resolve(msg.text);
           this.pending.delete(msg.reqId);
         }
         break;

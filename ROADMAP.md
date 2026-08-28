@@ -48,14 +48,14 @@ Bring desktop local-LLM polish into the browser mesh.
 
 13. `[x]` **In-app Hugging Face model browser** — search, filter by size/modality/quant, one-click add to registry.
 14. `[x]` **Custom model import** — paste any MLC / Transformers.js / HF repo id; validate WebGPU compatibility before load.
-15. `[ ]` **GGUF / llama.cpp WASM path** — optional engine for broader CPU/GPU coverage beyond WebLLM quants.
+15. `[x]` **GGUF / llama.cpp WASM path** — optional engine for broader CPU/GPU coverage beyond WebLLM quants.
 16. `[x]` **Quantization picker** — q4 / q5 / q8 / f16 variants with VRAM fit estimator across the pool.
 17. `[x]` **Embeddings engine** — first-class embedding models for RAG and semantic search (OpenAI `/v1/embeddings` shape).
 18. `[x]` **Vision & multimodal chat** — image attach, PDF page vision, multi-image turns (beyond SmolVLM demo).
-19. `[ ]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.
+19. `[x]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.
 20. `[x]` **Document RAG (offline-capable)** — upload PDF/DOCX/MD/TXT, chunk, embed on-device, cite sources in answers.
 21. `[x]` **Hybrid BM25 + vector retrieval** — Open WebUI–style hybrid search with optional re-ranker model.
-22. `[ ]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
+22. `[x]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
 23. `[x]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
 24. `[x]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
 25. `[x]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.

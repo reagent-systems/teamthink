@@ -41,9 +41,14 @@ import { getModel } from "@/lib/config";
 import {
   isShardedModel,
   isVisionModel,
+  isWasmModel,
   listConsoleModels,
 } from "@/lib/models/console-models";
+import { AudioBar } from "@/components/audio/AudioBar";
+import { speakText } from "@/lib/audio/record";
 import { retrieveContext, type RagSearchMode } from "@/lib/rag/store";
+import type { McpToolRoute } from "@/lib/mcp/client";
+import type { ToolDefinition } from "@/lib/tools/types";
 import { runAgentLoop } from "@/lib/tools/agent-loop";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
@@ -60,6 +65,11 @@ export function InferenceConsole({
   ragEnabled = false,
   ragSearchMode = "hybrid",
   toolsEnabled = false,
+  mcpEnabled = false,
+  mcpTools = [],
+  mcpRoutes,
+  ttsEnabled = false,
+  onTtsEnabledChange,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
@@ -70,7 +80,14 @@ export function InferenceConsole({
   ragEnabled?: boolean;
   ragSearchMode?: RagSearchMode;
   toolsEnabled?: boolean;
+  mcpEnabled?: boolean;
+  mcpTools?: ToolDefinition[];
+  mcpRoutes?: Map<string, McpToolRoute>;
+  ttsEnabled?: boolean;
+  onTtsEnabledChange?: (v: boolean) => void;
 }) {
+  const agentToolsOn = toolsEnabled || mcpEnabled;
+  const extraTools = mcpEnabled ? mcpTools : [];
   const gridModels = useMemo(
     () => listConsoleModels(),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when browser adds models
@@ -107,10 +124,39 @@ export function InferenceConsole({
   const model = isCustom ? null : getModel(effectiveModelId);
   const provisioned = snapshot.provisioned;
   const threadRef = useRef<ChatThread | null>(thread);
+  const spokenRef = useRef<string>("");
 
   useEffect(() => {
     threadRef.current = thread;
   }, [thread]);
+
+  const lastAssistantText = useMemo(() => {
+    if (!thread) return "";
+    for (let i = thread.messages.length - 1; i >= 0; i--) {
+      const m = thread.messages[i];
+      if (m?.role === "assistant" && m.content.trim()) return m.content;
+    }
+    return "";
+  }, [thread]);
+
+  useEffect(() => {
+    if (!ttsEnabled || !lastAssistantText) return;
+    const pipe = snapshot.pipelines.find(
+      (p) =>
+        p.status === "done" &&
+        thread?.messages.some((m) => m.jobId === p.planId && m.role === "assistant"),
+    );
+    const task = snapshot.tasks.find(
+      (t) =>
+        t.status === "done" &&
+        thread?.messages.some((m) => m.jobId === t.id && m.role === "assistant"),
+    );
+    if (!pipe && !task) return;
+    const key = lastAssistantText.slice(0, 80);
+    if (spokenRef.current === key) return;
+    spokenRef.current = key;
+    speakText(lastAssistantText);
+  }, [ttsEnabled, lastAssistantText, snapshot.pipelines, snapshot.tasks, thread]);
 
   const webgpuPeers = useMemo(
     () => snapshot.peers.filter((p) => p.caps.webgpu).length,
@@ -259,7 +305,7 @@ export function InferenceConsole({
       let jobId: string | null = null;
       if (isCustom) {
         jobId = null;
-      } else if (toolsEnabled && model) {
+      } else if (agentToolsOn && model) {
         const result = await runAgentLoop(
           node,
           model.id,
@@ -269,7 +315,9 @@ export function InferenceConsole({
           {
             roomId,
             ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
+            mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
           },
+          extraTools,
         );
         jobId = result?.jobId ?? null;
       } else if (model && isShardedModel(model)) {
@@ -344,11 +392,12 @@ export function InferenceConsole({
         jsonMode: thread.jsonMode,
       };
       let jobId: string | null = null;
-      if (toolsEnabled && m) {
+      if (agentToolsOn && m) {
         const result = await runAgentLoop(node, m.id, messages, sampler, true, {
           roomId,
           ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
-        });
+          mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
+        }, extraTools);
         jobId = result?.jobId ?? null;
       } else if (m && isShardedModel(m)) {
         jobId = node.runPrompt(messages, sampler);
@@ -468,6 +517,7 @@ export function InferenceConsole({
               {gridModels.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
+                  {isWasmModel(m) ? " · WASM" : ""}
                 </option>
               ))}
               <option value={CUSTOM}>Custom HF repo…</option>
@@ -624,6 +674,15 @@ export function InferenceConsole({
                 </>
               )}
             </div>
+          )}
+
+          {onTtsEnabledChange && (
+            <AudioBar
+              onTranscript={(text) => setPrompt((p) => (p ? `${p} ${text}` : text))}
+              ttsEnabled={ttsEnabled}
+              onTtsEnabledChange={onTtsEnabledChange}
+              lastAssistantText={lastAssistantText}
+            />
           )}
 
           <div className="flex gap-2">
