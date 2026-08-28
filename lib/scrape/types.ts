@@ -9,6 +9,8 @@ export interface SearchResult {
   title: string;
   url: string;
   snippet: string;
+  kind?: "web" | "news" | "image";
+  imageUrl?: string;
 }
 
 export interface Citation {

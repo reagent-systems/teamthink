@@ -1,5 +1,24 @@
 # TeamThink Desktop Releases
 
+## v0.10.0 — Phase 2 complete: batch scrape, workspaces, Firecrawl, PII, watch
+
+Finishes Phase 2 web context tooling.
+
+### What's new in 0.10.0
+
+#### 33–34, 36–39, 41, 43. Extended web agent toolkit
+
+- **News & image search** — `news_search` and `image_search` agent tools
+- **Browser interact** — `browser_interact` with wait/re-snapshot for static pages
+- **JSON extract** — `extract_json` pulls JSON-LD, Open Graph, and tables
+- **Batch scrape queue** — paste multiple URLs; progress tracked per room
+- **Change tracking** — watch URLs and check for content diffs
+- **PII redaction** — optional scrub before scrape/RAG ingest
+- **Firecrawl adapter** — paste API key in Web context panel to route scrapes through Firecrawl
+- **Knowledge workspaces** — named collections; scrape URLs straight into workspace RAG docs
+
+---
+
 ## v0.9.0 — Web scrape, crawl, search, agent mode (Phase 2 start)
 
 Live-web context tools via the signaling Worker proxy, agent mode for multi-step research, and citation footnotes in chat.

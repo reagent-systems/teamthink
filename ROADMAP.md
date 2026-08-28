@@ -73,17 +73,17 @@ Give the mesh live-web eyes and hands so agents can search, scrape, and act.
 30. `[x]` **Site crawl tool** — depth/limit crawl of a domain into a session knowledge base.
 31. `[x]` **Site map discovery** — fast URL inventory before selective scrape.
 32. `[x]` **Web search + content** — query → ranked results with full-page Markdown in one call.
-33. `[ ]` **News / image search sources** — specialized search result types for agents.
-34. `[ ]` **Browser interact tool** — click, type, scroll, wait on JS-heavy pages (Firecrawl Interact / agent browser).
+33. `[x]` **News / image search sources** — specialized search result types for agents.
+34. `[x]` **Browser interact tool** — click, type, scroll, wait on JS-heavy pages (Firecrawl Interact / agent browser).
 35. `[x]` **PDF & document URL parse** — remote PDFs/DOCX → Markdown without manual download.
-36. `[ ]` **Structured JSON extract** — schema-guided page extraction for agents and ETL.
-37. `[ ]` **Batch scrape queue** — async scrape of many URLs with progress in the room CRDT.
-38. `[ ]` **Change tracking** — watch URLs; notify room when content diffs (Firecrawl change-tracking pattern).
-39. `[ ]` **PII redaction pipeline** — optional scrub of scraped content before it enters chat/RAG.
+36. `[x]` **Structured JSON extract** — schema-guided page extraction for agents and ETL.
+37. `[x]` **Batch scrape queue** — async scrape of many URLs with progress in the room CRDT.
+38. `[x]` **Change tracking** — watch URLs; notify room when content diffs (Firecrawl change-tracking pattern).
+39. `[x]` **PII redaction pipeline** — optional scrub of scraped content before it enters chat/RAG.
 40. `[x]` **Agent mode** — natural-language goal → search/crawl/scrape/reason loop with citations.
-41. `[ ]` **Firecrawl provider adapter** — optional hosted Firecrawl API key; same tool interface as self-hosted/browser path.
+41. `[x]` **Firecrawl provider adapter** — optional hosted Firecrawl API key; same tool interface as self-hosted/browser path.
 42. `[x]` **Self-hosted crawler worker** — Cloudflare Worker / container that runs crawl jobs so browsers aren’t blocked by CORS.
-43. `[ ]` **Knowledge base workspaces** — AnythingLLM-style collections shared across a pool (docs + crawled pages).
+43. `[x]` **Knowledge base workspaces** — AnythingLLM-style collections shared across a pool (docs + crawled pages).
 44. `[x]` **Citation UI** — inline footnotes linking back to scraped URLs, PDF pages, and local uploads.
 
 ---

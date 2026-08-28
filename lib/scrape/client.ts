@@ -1,6 +1,10 @@
 import { WORKER_HTTP_URL } from "@/lib/config";
-import type { Citation, ScrapeResult, SearchResult } from "@/lib/scrape/types";
+import { firecrawlScrape } from "@/lib/scrape/firecrawl";
+import { extractStructuredFromHtml } from "@/lib/scrape/extract-json";
 import { parseHtml } from "@/lib/scrape/html-to-md";
+import { redactPii } from "@/lib/scrape/pii";
+import { getScrapeSettings } from "@/lib/scrape/settings";
+import type { Citation, ScrapeResult, SearchResult } from "@/lib/scrape/types";
 
 async function workerPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
   if (!WORKER_HTTP_URL) {
@@ -16,12 +20,23 @@ async function workerPost<T>(path: string, body: Record<string, unknown>): Promi
   return json;
 }
 
-/** Scrape a URL → Markdown via the signaling Worker (CORS-safe). */
+function maybeRedact(page: ScrapeResult): ScrapeResult {
+  if (!getScrapeSettings().redactPii) return page;
+  return { ...page, markdown: redactPii(page.markdown) };
+}
+
+/** Scrape a URL → Markdown via Firecrawl or the Worker proxy. */
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
-  if (WORKER_HTTP_URL) {
-    return workerPost<ScrapeResult>("/scrape", { url });
+  const settings = getScrapeSettings();
+  let page: ScrapeResult;
+  if (settings.provider === "firecrawl" && settings.firecrawlApiKey.trim()) {
+    page = await firecrawlScrape(url, settings.firecrawlApiKey.trim());
+  } else if (WORKER_HTTP_URL) {
+    page = await workerPost<ScrapeResult>("/scrape", { url });
+  } else {
+    page = await scrapeDirect(url);
   }
-  return scrapeDirect(url);
+  return maybeRedact(page);
 }
 
 async function scrapeDirect(url: string): Promise<ScrapeResult> {
@@ -30,6 +45,15 @@ async function scrapeDirect(url: string): Promise<ScrapeResult> {
   const html = await res.text();
   const parsed = parseHtml(html, url);
   return { url, ...parsed };
+}
+
+async function fetchHtml(url: string): Promise<string> {
+  if (WORKER_HTTP_URL) {
+    const page = await workerPost<ScrapeResult>("/scrape", { url });
+    return page.markdown;
+  }
+  const res = await fetch(url);
+  return res.text();
 }
 
 export async function discoverSiteMap(url: string): Promise<string[]> {
@@ -52,28 +76,99 @@ export async function crawlSite(
       maxDepth,
       maxPages,
     });
-    return data.pages;
+    return data.pages.map(maybeRedact);
   }
-  const root = await scrapeDirect(url);
-  return [root];
+  return [maybeRedact(await scrapeDirect(url))];
 }
 
 export async function webSearch(query: string, limit = 5): Promise<SearchResult[]> {
-  if (!WORKER_HTTP_URL) {
-    throw new Error("Web search requires NEXT_PUBLIC_SIGNAL_WS_URL");
-  }
+  if (!WORKER_HTTP_URL) throw new Error("Web search requires NEXT_PUBLIC_SIGNAL_WS_URL");
   const data = await workerPost<{ results: SearchResult[] }>("/search", {
     query,
     limit,
+    mode: "web",
   });
+  return data.results;
+}
+
+export async function newsSearch(query: string, limit = 5): Promise<SearchResult[]> {
+  if (!WORKER_HTTP_URL) throw new Error("News search requires NEXT_PUBLIC_SIGNAL_WS_URL");
+  const data = await workerPost<{ results: SearchResult[] }>("/search", {
+    query,
+    limit,
+    mode: "news",
+  });
+  return data.results;
+}
+
+export async function imageSearch(
+  query: string,
+  limit = 8,
+): Promise<(SearchResult & { imageUrl?: string })[]> {
+  if (!WORKER_HTTP_URL) throw new Error("Image search requires NEXT_PUBLIC_SIGNAL_WS_URL");
+  const data = await workerPost<{ results: (SearchResult & { imageUrl?: string })[] }>(
+    "/search",
+    { query, limit, mode: "images" },
+  );
   return data.results;
 }
 
 export async function parsePdfUrl(url: string): Promise<{ url: string; markdown: string }> {
   if (WORKER_HTTP_URL) {
-    return workerPost("/parse-pdf", { url });
+    const doc = await workerPost<{ url: string; markdown: string }>("/parse-pdf", { url });
+    if (getScrapeSettings().redactPii) {
+      doc.markdown = redactPii(doc.markdown);
+    }
+    return doc;
   }
   throw new Error("PDF parse requires the TeamThink Worker proxy");
+}
+
+export async function extractJsonFromUrl(
+  url: string,
+  schemaHint?: string,
+): Promise<Record<string, unknown>> {
+  if (WORKER_HTTP_URL) {
+    return workerPost("/extract-json", { url, schemaHint });
+  }
+  const html = await fetchHtml(url);
+  return extractStructuredFromHtml(html, schemaHint);
+}
+
+export async function browserInteract(
+  url: string,
+  actions: { type: string; ms?: number; selector?: string; text?: string }[],
+): Promise<string> {
+  const notes: string[] = [];
+  let page = await scrapeUrl(url);
+  for (const action of actions) {
+    switch (action.type) {
+      case "wait":
+        await sleep(action.ms ?? 1000);
+        notes.push(`waited ${action.ms ?? 1000}ms`);
+        break;
+      case "scroll":
+      case "click":
+      case "type":
+        notes.push(`${action.type} simulated — re-fetching static snapshot`);
+        page = await scrapeUrl(url);
+        break;
+      case "resnapshot":
+        page = await scrapeUrl(url);
+        break;
+      default:
+        notes.push(`unknown action ${action.type}`);
+    }
+  }
+  return [
+    ...notes.map((n) => `(${n})`),
+    formatScrapeForTool(page),
+    "Dynamic JS interactions may need a live browser; static fetch used.",
+  ].join("\n");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function formatScrapeForTool(page: ScrapeResult): string {

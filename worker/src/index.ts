@@ -77,10 +77,18 @@ export default {
 
     if (url.pathname === "/search" && request.method === "POST") {
       try {
-        const body = (await request.json()) as { query?: string; limit?: number };
+        const body = (await request.json()) as {
+          query?: string;
+          limit?: number;
+          mode?: "web" | "news" | "images";
+        };
         if (!body.query?.trim()) return json({ error: "query required" }, 400);
         const { searchWeb } = await import("./scrape");
-        const results = await searchWeb(body.query, body.limit ?? 5);
+        const results = await searchWeb(
+          body.query,
+          body.limit ?? 5,
+          body.mode ?? "web",
+        );
         return json({ results });
       } catch (err) {
         return json(
@@ -123,6 +131,22 @@ export default {
       } catch (err) {
         return json(
           { error: err instanceof Error ? err.message : "sitemap failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/extract-json" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string; schemaHint?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchHtmlRaw } = await import("./scrape");
+        const { extractStructuredFromHtml } = await import("./extract-json");
+        const html = await fetchHtmlRaw(body.url);
+        return json(extractStructuredFromHtml(html, body.schemaHint));
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "extract failed" },
           502,
         );
       }

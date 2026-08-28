@@ -28,13 +28,26 @@ export async function fetchAndParse(url: string): Promise<ScrapeResponse> {
   return { url: target, ...parsed };
 }
 
-export async function searchWeb(query: string, limit = 5): Promise<SearchHit[]> {
+export async function searchWeb(
+  query: string,
+  limit = 5,
+  mode: "web" | "news" | "images" = "web",
+): Promise<SearchHit[]> {
   const q = encodeURIComponent(query.trim());
-  const res = await fetchWithTimeout(
-    `https://html.duckduckgo.com/html/?q=${q}`,
-    { headers: { "User-Agent": "TeamThink/0.9" } },
-  );
+  let searchUrl = `https://html.duckduckgo.com/html/?q=${q}`;
+  if (mode === "news") searchUrl += "&iar=news&ia=news";
+  if (mode === "images") searchUrl += "&iar=images&ia=images";
+
+  const res = await fetchWithTimeout(searchUrl, {
+    headers: { "User-Agent": "TeamThink/0.9" },
+  });
   const html = await res.text();
+
+  if (mode === "images") return parseImageHits(html, limit);
+  return parseWebHits(html, limit);
+}
+
+function parseWebHits(html: string, limit: number): SearchHit[] {
   const hits: SearchHit[] = [];
   const re =
     /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?class="result__snippet"[^>]*>([\s\S]*?)<\/(?:a|td|div)>/gi;
@@ -50,6 +63,33 @@ export async function searchWeb(query: string, limit = 5): Promise<SearchHit[]> 
     if (title && url.startsWith("http")) hits.push({ title, url, snippet });
   }
   return hits;
+}
+
+function parseImageHits(html: string, limit: number): SearchHit[] {
+  const hits: SearchHit[] = [];
+  const re =
+    /<a[^>]+class="[^"]*tile[^"]*"[^>]+href="([^"]+)"[^>]*>[\s\S]*?<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) && hits.length < limit) {
+    let url = m[1]!;
+    const imageUrl = m[2]!;
+    if (url.includes("uddg=")) {
+      const u = new URL(url, "https://duckduckgo.com");
+      url = u.searchParams.get("uddg") ?? url;
+    }
+    hits.push({
+      title: imageUrl.split("/").pop() ?? "image",
+      url,
+      snippet: imageUrl,
+    });
+  }
+  return hits;
+}
+
+export async function fetchHtmlRaw(url: string): Promise<string> {
+  const target = normalizeUrl(url);
+  const res = await fetchWithTimeout(target);
+  return readLimited(res);
 }
 
 export async function crawlDomain(

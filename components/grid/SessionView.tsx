@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DocumentPanel } from "@/components/rag/DocumentPanel";
 import { ToolsPanel } from "@/components/tools/ToolsPanel";
+import { KnowledgeBasePanel } from "@/components/kb/KnowledgeBasePanel";
 import { McpPanel } from "@/components/mcp/McpPanel";
 import { WebToolsPanel } from "@/components/scrape/WebToolsPanel";
 import { GatewayBridge } from "@/components/gateway/GatewayBridge";
@@ -82,6 +83,7 @@ export function SessionView({ roomId }: { roomId: string }) {
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
           />
+          <KnowledgeBasePanel roomId={roomId} />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>

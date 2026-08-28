@@ -45,12 +45,77 @@ export const WEB_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: "news_search",
+    description: "Search recent news articles for a query.",
+    parameters: {
+      type: "object",
+      properties: { query: { type: "string" }, limit: { type: "number" } },
+      required: ["query"],
+    },
+  },
+  {
+    name: "image_search",
+    description: "Search for images matching a query; returns URLs and thumbnails.",
+    parameters: {
+      type: "object",
+      properties: { query: { type: "string" }, limit: { type: "number" } },
+      required: ["query"],
+    },
+  },
+  {
     name: "parse_pdf",
     description: "Fetch a remote PDF URL and extract text as Markdown.",
     parameters: {
       type: "object",
       properties: { url: { type: "string" } },
       required: ["url"],
+    },
+  },
+  {
+    name: "extract_json",
+    description: "Extract JSON-LD, Open Graph, and tables from a page URL.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        schema_hint: { type: "string", description: "Optional schema guidance" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "browser_interact",
+    description: "Wait and re-snapshot a URL (static fetch; JS click/type simulated).",
+    parameters: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["wait", "scroll", "click", "type", "resnapshot"] },
+              ms: { type: "number" },
+              selector: { type: "string" },
+              text: { type: "string" },
+            },
+          },
+        },
+      },
+      required: ["url", "actions"],
+    },
+  },
+  {
+    name: "batch_scrape",
+    description: "Queue multiple URLs for background scrape (returns job id).",
+    parameters: {
+      type: "object",
+      properties: {
+        urls: { type: "array", items: { type: "string" } },
+        ingest_to_rag: { type: "boolean" },
+      },
+      required: ["urls"],
     },
   },
 ];
