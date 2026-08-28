@@ -16,6 +16,7 @@ import { OnboardingTour } from "@/components/grid/OnboardingTour";
 import { PeerList } from "@/components/grid/PeerList";
 import { RecoveryBanner } from "@/components/grid/RecoveryBanner";
 import { TelemetryStrip } from "@/components/grid/TelemetryStrip";
+import { DeviceRoutingPanel } from "@/components/grid/DeviceRoutingPanel";
 import { SignInPanel } from "@/components/auth/SignInPanel";
 import { ProfilePanel } from "@/components/platform/ProfilePanel";
 import { NotificationsPanel } from "@/components/platform/NotificationsPanel";
@@ -120,6 +121,7 @@ export function SessionView({ roomId }: { roomId: string }) {
           <ToolsPanel enabled={toolsEnabled} onEnabledChange={setToolsEnabled} />
           <KnowledgeBasePanel roomId={roomId} />
           <CapabilityPanel snapshot={snapshot} />
+          <DeviceRoutingPanel roomId={roomId} peers={snapshot.peers} />
           <PeerList peers={snapshot.peers} />
         </div>
 

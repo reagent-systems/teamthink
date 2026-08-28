@@ -109,6 +109,10 @@ export default function Home() {
         </section>
 
         <p className="mt-10 text-sm text-ink-muted">
+          <a href="/health/" className="text-accent-strong hover:underline">
+            Swarm health
+          </a>
+          {" · "}
           <a href="/admin/" className="text-accent-strong hover:underline">
             Admin console
           </a>

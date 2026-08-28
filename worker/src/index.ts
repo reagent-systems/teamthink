@@ -224,9 +224,32 @@ export default {
       }
     }
 
+    if (url.pathname === "/turn/credentials" && request.method === "GET") {
+      const turnUrl = (env as { TURN_URL?: string }).TURN_URL ?? process.env.TURN_URL;
+      if (!turnUrl) {
+        return json({
+          servers: [
+            { urls: "stun:stun.l.google.com:19302" },
+          ],
+        });
+      }
+      const username = `tt_${Date.now()}`;
+      const credential = b64Credential(username);
+      return json({
+        servers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: turnUrl, username, credential },
+        ],
+      });
+    }
+
     return new Response("teamthink signaling", { headers: CORS });
   },
 };
+
+function b64Credential(seed: string): string {
+  return btoa(seed).replace(/=+$/, "");
+}
 
 interface Attach {
   peer: string;

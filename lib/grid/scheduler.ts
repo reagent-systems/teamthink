@@ -49,6 +49,9 @@ import {
 import { isEos } from "@/lib/engine/shard/manifest";
 import type { ShardRange } from "@/lib/engine/shard/model-descriptor";
 import { MeshYjsProvider } from "@/lib/mesh/yjs-provider";
+import { priorityForRole, effectivePriority } from "@/lib/grid/priority";
+import { getDeviceLabel } from "@/lib/grid/device-routing";
+import { scorePeer } from "@/lib/mesh/routing";
 import { generatePeerId } from "@/lib/id";
 
 const enc = new TextEncoder();
@@ -59,7 +62,7 @@ type AppMessage =
   | { t: "token"; jobId: string; token: string }
   | { t: "stage"; jobId: string; stage: string; progress: number };
 
-const MAX_CONCURRENT = 1;
+const MAX_CONCURRENT = 2;
 /** Window to let CRDT claims converge before committing to run. */
 const CLAIM_SETTLE_MS = 350;
 /** If a pipeline step makes no progress within this window, abort. */
@@ -155,7 +158,8 @@ export class GridNode {
       jsonMode?: boolean;
     }
   >();
-  private jobQueue: string[] = [];
+  private jobQueue: { jobId: string; priority: number }[] = [];
+  private tokensServed = 0;
   private currentJobId: string | null = null;
 
   private loadPolicy: ModelLoadPolicy = "keep-warm";
@@ -171,6 +175,7 @@ export class GridNode {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private started = false;
+  private sessionStartedAt = Date.now();
 
   constructor(readonly roomId: string) {
     this.peerId = generatePeerId();
@@ -258,6 +263,7 @@ export class GridNode {
       status: "open",
       createdAt: now,
       updatedAt: now,
+      priority: effectivePriority(priorityForRole(this.roomRole), now),
     };
     this.tasks.set(id, task);
     this.streams.set(id, "");
@@ -280,7 +286,7 @@ export class GridNode {
     const planId = `pl_${slug(modelId)}_${slug(repo)}`;
     this.provisionedPlanId = planId;
     // Cancel anything queued against the previous model.
-    for (const jobId of this.jobQueue) {
+    for (const { jobId } of this.jobQueue) {
       const v = this.jobs.get(jobId);
       if (v) {
         v.status = "error";
@@ -349,7 +355,11 @@ export class GridNode {
     });
     this.jobMessages.set(jobId, messages);
     this.jobOptions.set(jobId, merged);
-    this.jobQueue.push(jobId);
+    this.jobQueue.push({
+      jobId,
+      priority: effectivePriority(priorityForRole(this.roomRole), Date.now()),
+    });
+    this.jobQueue.sort((a, b) => a.priority - b.priority);
     this.recompute();
     this.touchActivity();
     void this.maybeRunNext();
@@ -407,7 +417,7 @@ export class GridNode {
     this.loadedModels.clear();
     this.activeModelId = null;
     this.modelLoad = null;
-    for (const jobId of this.jobQueue) {
+    for (const { jobId } of this.jobQueue) {
       const v = this.jobs.get(jobId);
       if (v) {
         v.status = "error";
@@ -494,6 +504,15 @@ export class GridNode {
       self: true,
       displayName: this.displayName || undefined,
       roomRole: this.roomRole,
+      deviceLabel: getDeviceLabel() || undefined,
+      tokensServed: this.tokensServed,
+      rttMs: this.avgRtt(),
+      computeScore: scorePeer(
+        this.peerId,
+        this.avgRtt(),
+        this.tokensServed,
+        this.sessionStartedAt,
+      ).reliability,
     };
     this.presence.set(this.peerId, self);
     this.recompute();
@@ -514,6 +533,13 @@ export class GridNode {
       this.pingSentAt.set(nonce, performance.now());
       this.sendPipe(peerId, { kind: "ping", nonce });
     }
+  }
+
+  private avgRtt(): number {
+    if (this.rtt.size === 0) return 0;
+    let sum = 0;
+    for (const v of this.rtt.values()) sum += v;
+    return sum / this.rtt.size;
   }
 
   private prunePresence(): void {
@@ -898,7 +924,7 @@ export class GridNode {
     if (!planId) return;
     const record = this.pipelines.get(planId);
     if (!record || record.status !== "ready") return;
-    const jobId = this.jobQueue.shift();
+    const jobId = this.jobQueue.shift()?.jobId;
     if (!jobId) return;
     const messages = this.jobMessages.get(jobId);
     this.jobMessages.delete(jobId);

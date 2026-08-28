@@ -1,25 +1,30 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { HeadlessComputeView } from "@/components/grid/HeadlessComputeView";
 import { SessionView } from "@/components/grid/SessionView";
+import { setRoomSecret } from "@/lib/mesh/crypto";
 
 /**
  * Session route. The room id rides in the query string (`/s?r=<id>`) rather
- * than a dynamic path segment so the whole app ships as a static export — the
- * deployment serves one `/s` page and the room is read client-side from the
- * link. No server route is involved in joining a room.
+ * than a dynamic path segment so the whole app ships as a static export.
  *
- * Append `headless=1` or `mode=compute` for an always-on compute node without chat UI.
+ * Append `headless=1` or `mode=compute` for an always-on compute node.
+ * Append `k=<secret>` for a shared E2E room encryption key.
  */
 function Session() {
   const params = useSearchParams();
   const roomId = params.get("r")?.trim() ?? "";
+  const roomSecret = params.get("k")?.trim() ?? undefined;
   const headless =
     params.get("headless") === "1" ||
     params.get("mode") === "compute";
+
+  useEffect(() => {
+    if (roomSecret && roomId) setRoomSecret(roomId, roomSecret);
+  }, [roomId, roomSecret]);
 
   if (!roomId) {
     return (

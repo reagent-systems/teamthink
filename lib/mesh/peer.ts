@@ -1,4 +1,6 @@
 import { ICE_SERVERS } from "@/lib/config";
+import { decryptFrame, encryptFrame } from "@/lib/mesh/crypto";
+import { shouldConnectPeer } from "@/lib/mesh/topology";
 import { WsSignaling } from "@/lib/mesh/ws-signaling";
 
 /**
@@ -46,20 +48,37 @@ export class MeshClient {
   private connections = new Map<string, Connection>();
   private handlers = new Map<number, Set<FrameHandler>>();
   private sig: WsSignaling;
+  private allPeers = new Set<string>();
+  private encryption = true;
+  private roomSecret?: string;
 
   constructor(
     readonly roomId: string,
     readonly peerId: string,
     private events: MeshEvents = {},
+    opts?: { encryption?: boolean; roomSecret?: string },
   ) {
+    this.encryption = opts?.encryption ?? true;
+    this.roomSecret = opts?.roomSecret;
     this.sig = new WsSignaling(roomId, peerId, {
       onPeers: (peers) => {
-        for (const p of peers) this.maybeInitiate(p);
+        for (const p of peers) this.allPeers.add(p);
+        this.reconcileConnections();
       },
-      onJoin: (peer) => this.maybeInitiate(peer),
-      onLeave: (peer) => this.teardown(peer, true),
+      onJoin: (peer) => {
+        this.allPeers.add(peer);
+        this.maybeInitiate(peer);
+      },
+      onLeave: (peer) => {
+        this.allPeers.delete(peer);
+        this.teardown(peer, true);
+      },
       onSignal: (from, data) => void this.handleSignal(from, data),
     });
+  }
+
+  private reconcileConnections(): void {
+    for (const p of this.allPeers) this.maybeInitiate(p);
   }
 
   async start(): Promise<void> {
@@ -92,11 +111,23 @@ export class MeshClient {
   sendTo(peerId: string, channel: number, payload: Uint8Array): boolean {
     const conn = this.connections.get(peerId);
     if (!conn?.channel || conn.channel.readyState !== "open") return false;
-    const frame = new Uint8Array(payload.length + 1);
-    frame[0] = channel;
-    frame.set(payload, 1);
-    conn.channel.send(frame);
+    void this.sendEncrypted(conn.channel, channel, payload);
     return true;
+  }
+
+  private async sendEncrypted(
+    channel: RTCDataChannel,
+    tag: number,
+    payload: Uint8Array,
+  ): Promise<void> {
+    let body = payload;
+    if (this.encryption) {
+      body = await encryptFrame(this.roomId, payload, this.roomSecret);
+    }
+    const frame = new Uint8Array(body.length + 1);
+    frame[0] = tag;
+    frame.set(body, 1);
+    if (channel.readyState === "open") channel.send(frame);
   }
 
   get connectedPeers(): string[] {
@@ -112,9 +143,27 @@ export class MeshClient {
     return this.peerId < peerId;
   }
 
+  /** Partial-mesh: connect only to a bounded subset of peers (gossip topology). */
   private maybeInitiate(peerId: string): void {
     if (peerId === this.peerId || this.connections.has(peerId)) return;
+    const connected = this.connectedPeers.length;
+    const all = [...this.allPeers, ...this.connectedPeers];
+    if (
+      !shouldConnectPeer(
+        this.peerId,
+        peerId,
+        this.roomId,
+        all,
+        connected,
+      )
+    ) {
+      return;
+    }
     if (this.shouldInitiate(peerId)) void this.initiate(peerId);
+  }
+
+  private canAcceptIncoming(): boolean {
+    return this.connectedPeers.length < 8;
   }
 
   private send(to: string, kind: SignalKind, payload: unknown): void {
@@ -168,12 +217,23 @@ export class MeshClient {
       }
     };
     channel.onmessage = (e) => {
-      const buf = new Uint8Array(e.data as ArrayBuffer);
-      const tag = buf[0];
-      const payload = buf.subarray(1);
-      const set = this.handlers.get(tag);
-      if (set) for (const h of set) h(peerId, payload);
+      void this.onChannelMessage(peerId, e);
     };
+  }
+
+  private async onChannelMessage(
+    peerId: string,
+    e: MessageEvent,
+  ): Promise<void> {
+    const buf = new Uint8Array(e.data as ArrayBuffer);
+    const tag = buf[0]!;
+    let payload: Uint8Array = buf.subarray(1);
+    if (this.encryption) {
+      const dec = await decryptFrame(this.roomId, payload, this.roomSecret);
+      if (dec) payload = dec as Uint8Array<ArrayBuffer>;
+    }
+    const set = this.handlers.get(tag);
+    if (set) for (const h of set) h(peerId, payload);
   }
 
   private async initiate(peerId: string): Promise<void> {
@@ -192,6 +252,7 @@ export class MeshClient {
     let conn = this.connections.get(from);
 
     if (sig.kind === "offer") {
+      if (!this.canAcceptIncoming()) return;
       if (!conn) conn = this.createConnection(from);
       await conn.pc.setRemoteDescription(
         sig.payload as RTCSessionDescriptionInit,

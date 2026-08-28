@@ -1,5 +1,37 @@
 # TeamThink Desktop Releases
 
+## v0.13.0 — Phase 4: mesh topology, routing, encryption, health
+
+Distributed inference swarm improvements.
+
+### What's new in 0.13.0
+
+#### 61–62, 64. Sharding, partial mesh, latency routing
+
+- **Partial-mesh topology** — each peer connects to at most 8 neighbors (gossip-style) instead of full mesh
+- **Latency-aware routing** — RTT measurement and compute reliability scores in presence gossip
+- **Priority queues** — owner/admin jobs dequeue before guests with anti-starvation boost
+
+#### 68–69, 72. Fair queues, scoring, device routing
+
+- **Compute contribution scoring** — tokens served and uptime feed a 0–1 reliability score
+- **Device routing panel** — name this device and pin jobs to a preferred peer (LM Link pattern)
+
+#### 73–74. TURN automation & E2E encryption
+
+- **`GET /turn/credentials`** — Worker issues time-limited TURN credential pairs when `TURN_URL` is set
+- **AES-GCM encrypted data channels** — optional room secret via `?k=` on invite links
+
+#### 76. Swarm health monitor
+
+Public **`/health`** page lists live pools and peer counts from the signaling registry.
+
+#### 71. Native desktop app
+
+Electron pack workflow verified (`pnpm desktop:pack`).
+
+---
+
 ## v0.12.0 — Phase 3 complete: orgs, audit, notifications, hybrid, admin
 
 Finishes the Firebase-class platform layer.

@@ -21,6 +21,7 @@ export interface TaskRecord {
   error?: string;
   createdAt: number;
   updatedAt: number;
+  priority?: number;
 }
 
 export type RoomRole = "owner" | "compute" | "request";
@@ -39,6 +40,14 @@ export interface PeerPresence {
   displayName?: string;
   /** Room role badge (owner / compute / request-only). */
   roomRole?: RoomRole;
+  /** Round-trip latency ms (gossiped). */
+  rttMs?: number;
+  /** Tokens served this session (compute score input). */
+  tokensServed?: number;
+  /** 0–1 reliability score for routing. */
+  computeScore?: number;
+  /** Preferred device label for LM Link-style routing. */
+  deviceLabel?: string;
 }
 
 // --- pipeline-parallel (sharded) inference ----------------------------------

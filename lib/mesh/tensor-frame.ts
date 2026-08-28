@@ -48,7 +48,13 @@ export type PipeMessage =
   | { kind: "ready"; jobId: string; shardIndex: number };
 
 const MAX_CHUNK = 16000; // bytes of payload per data-channel frame
-const HEADER_BYTES = 8; // msgId(u32) + partIdx(u16) + partCount(u16)
+const HEADER_BYTES = 9; // msgId(u32) + partIdx(u16) + partCount(u16) + checksum(u8)
+
+function payloadChecksum(data: Uint8Array): number {
+  let c = 0;
+  for (let i = 0; i < data.length; i++) c = (c + data[i]!) & 0xff;
+  return c;
+}
 
 let msgSeq = 1;
 
@@ -118,6 +124,7 @@ export function encodePipe(msg: PipeMessage): Uint8Array[] {
     dv.setUint16(4, part);
     dv.setUint16(6, partCount);
     frame.set(slice, HEADER_BYTES);
+    dv.setUint8(8, payloadChecksum(slice));
     frames.push(frame);
   }
   return frames;
@@ -139,6 +146,8 @@ export class PipeReassembler {
     const partIdx = dv.getUint16(4);
     const partCount = dv.getUint16(6);
     const payload = frame.subarray(HEADER_BYTES);
+    const expected = dv.getUint8(8);
+    if (payloadChecksum(payload) !== expected) return null;
 
     if (partCount === 1) {
       return decodeLogical(payload.slice());

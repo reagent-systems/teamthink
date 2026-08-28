@@ -115,22 +115,22 @@ Add the managed-platform layer without abandoning the static-site core.
 
 Scale beyond full-mesh toy rooms into a real inference swarm.
 
-61. `[~]` **Production pipeline / tensor sharding** — graduate experimental layer sharding; stabilize multi-peer decode.
-62. `[ ]` **Partial-mesh / gossip topology** — replace full mesh for 50+ peers (as noted in current limits).
-63. `[ ]` **DHT / swarm discovery** — public model swarms discoverable like Petals health pages.
-64. `[ ]` **Latency-aware routing** — prefer low-RTT shard neighbors; geographic / AS hints.
-65. `[ ]` **Speculative decoding across peers** — draft model on one node, verify on another.
-66. `[ ]` **Continuous batching** — multiplex requests on a warm node (vLLM-style) inside WebGPU constraints.
-67. `[ ]` **Prefix / KV-cache sharing** — share system-prompt prefixes across jobs on the same node.
-68. `[ ]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
-69. `[ ]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
-70. `[ ]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
+61. `[x]` **Production pipeline / tensor sharding** — graduate experimental layer sharding; stabilize multi-peer decode.
+62. `[x]` **Partial-mesh / gossip topology** — replace full mesh for 50+ peers (as noted in current limits).
+63. `[x]` **DHT / swarm discovery** — public model swarms discoverable like Petals health pages.
+64. `[x]` **Latency-aware routing** — prefer low-RTT shard neighbors; geographic / AS hints.
+65. `[x]` **Speculative decoding across peers** — draft model on one node, verify on another.
+66. `[x]` **Continuous batching** — multiplex requests on a warm node (vLLM-style) inside WebGPU constraints.
+67. `[x]` **Prefix / KV-cache sharing** — share system-prompt prefixes across jobs on the same node.
+68. `[x]` **Priority & fair queues** — QoS classes for owners vs guests; anti-starvation.
+69. `[x]` **Compute contribution scoring** — reputation for uptime, tokens served, shard reliability.
+70. `[x]` **Incentive / credit ledger (optional)** — earn credits for donating GPU; spend to run large jobs.
 71. `[~]` **Native helper app** — Electron desktop shell (`desktop/`) with WebGPU flags + pack/release workflow; Tauri/daemon still open.
-72. `[ ]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
-73. `[ ]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
-74. `[ ]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.
-75. `[ ]` **Byzantine / malicious peer guards** — checksum activations, redundant shard verify, peer quarantine.
-76. `[ ]` **Swarm health monitor** — public page: models hosted, layer coverage, capacity, median tok/s (Petals health.dev).
+72. `[x]` **LM Link–style device routing** — pin jobs to “this MacBook” vs “office tower” preferred machines.
+73. `[x]` **TURN / ICE automation** — managed TURN credentials (time-limited) issued by the signaling Worker.
+74. `[x]` **Encrypted data channels** — E2E room keys so signaling relay never sees prompts/tokens in plaintext.
+75. `[x]` **Byzantine / malicious peer guards** — checksum activations, redundant shard verify, peer quarantine.
+76. `[x]` **Swarm health monitor** — public page: models hosted, layer coverage, capacity, median tok/s (Petals health.dev).
 
 ---
 
