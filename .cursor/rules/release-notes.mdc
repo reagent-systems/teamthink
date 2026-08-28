@@ -46,11 +46,37 @@ pipeline.
 Long literary scenes, hype adjectives, or bare bullet lists with no “You …”
 scenario.
 
+## Release showcase art (must match OG brand)
+
+When generating or updating release marketing images (GitHub Release body,
+`public/release/*`, hero / “what’s new” grids), **match `public/og.jpg`** —
+do not invent a separate dark/neon look.
+
+Brand lock (copy from OG):
+
+- **Background:** warm cream / off-white paper texture (`#faf9f5`), not flat
+  white or dark mode.
+- **Wordmark:** large high-contrast **serif** “TeamThink”; supporting lines in
+  clean grey sans-serif; optional monospaced footer chips.
+- **Accent:** clay/coral (`#d97757`) — thin rules, soft circular glow, solid
+  circular mesh nodes. No purple, indigo, neon blue, or cyber glow stacks.
+- **Graphic language:** airy peer-mesh of thin-outline laptops/phones connected
+  by light grey lines (same line weight as OG). Quiet layouts; avoid heavy
+  shadowed cards and rounded-full pills.
+- Prefer the image generator with **`public/og.jpg` as a reference image**.
+- Ship assets under `public/release/` and attach them to the GitHub Release;
+  keep files reasonable for the web (prefer &lt; 2 MB each).
+
+If OG/social art itself changed, also follow
+`.cursor/rules/og-social-preview.mdc`.
+
 ## Checklist before tagging `vX.Y.Z`
 
 1. List user-visible features in the release.
 2. Rewrite each as a use-case block (above).
 3. Update `RELEASE.md` “What’s new” section.
 4. Use the same copy in the GitHub Release notes.
-5. If `public/og.png` / social art changed, follow
+5. Generate or refresh release showcase images **on-brand with `public/og.jpg`**
+   (see above); put them in `public/release/` and on the GitHub Release.
+6. If `public/og.jpg` / social art changed, follow
    `.cursor/rules/og-social-preview.mdc` so X/Twitter cards stay correct.
