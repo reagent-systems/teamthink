@@ -54,13 +54,13 @@ Bring desktop local-LLM polish into the browser mesh.
 18. `[x]` **Vision & multimodal chat** — image attach, PDF page vision, multi-image turns (beyond SmolVLM demo).
 19. `[ ]` **Audio I/O** — Whisper-class STT + browser TTS / Kokoro-style local voice for hands-free mesh chat.
 20. `[x]` **Document RAG (offline-capable)** — upload PDF/DOCX/MD/TXT, chunk, embed on-device, cite sources in answers.
-21. `[ ]` **Hybrid BM25 + vector retrieval** — Open WebUI–style hybrid search with optional re-ranker model.
+21. `[x]` **Hybrid BM25 + vector retrieval** — Open WebUI–style hybrid search with optional re-ranker model.
 22. `[ ]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
-23. `[ ]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
-24. `[ ]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
+23. `[x]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
+24. `[x]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
 25. `[ ]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.
-26. `[ ]` **Headless node / daemon mode** — “llmster for browsers”: keep a tab or Service Worker as always-on compute without full UI.
-27. `[ ]` **CLI (`tt`)** — create rooms, list peers, pull models, chat, and start a local OpenAI server from the terminal.
+26. `[x]` **Headless node / daemon mode** — “llmster for browsers”: keep a tab or Service Worker as always-on compute without full UI.
+27. `[x]` **CLI (`tt`)** — create rooms, list peers, pull models, chat, and start a local OpenAI server from the terminal.
 28. `[ ]` **TypeScript + Python SDKs** — script the mesh: load model, stream chat, submit pipeline jobs, manage rooms.
 
 ---

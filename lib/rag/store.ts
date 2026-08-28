@@ -1,10 +1,15 @@
 import { DEFAULT_EMBEDDING_MODEL_ID } from "@/lib/config";
 import { InferenceClient } from "@/lib/engine/worker-client";
+import { Bm25Index, normalizeScores } from "@/lib/rag/bm25";
 import { chunkText, cosineSimilarity } from "@/lib/rag/chunk";
 import type { RagChunk, RagDocument, RagSearchHit } from "@/lib/rag/types";
 
 const DOCS_KEY = "teamthink.rag.docs.v1";
 const CHUNKS_KEY = "teamthink.rag.chunks.v1";
+
+export type RagSearchMode = "vector" | "bm25" | "hybrid";
+
+const HYBRID_VECTOR_WEIGHT = 0.55;
 
 let embedClient: InferenceClient | null = null;
 
@@ -86,28 +91,88 @@ export async function ingestText(
   return doc;
 }
 
-/** Top-k semantic search over indexed chunks for a room. */
+/** Top-k search with vector, BM25, or hybrid fusion. */
 export async function searchChunks(
   roomId: string,
   query: string,
   k = 4,
+  mode: RagSearchMode = "hybrid",
 ): Promise<RagSearchHit[]> {
   const chunks = readChunks().filter((c) => c.roomId === roomId);
   if (chunks.length === 0) return [];
   const docs = new Map(listDocuments(roomId).map((d) => [d.id, d.name]));
+
+  if (mode === "bm25") {
+    return bm25Hits(chunks, docs, query, k);
+  }
+
+  const vectorHits = await vectorHitsInternal(chunks, docs, query, k * 2);
+
+  if (mode === "vector") {
+    return vectorHits.slice(0, k);
+  }
+
+  const bm25 = new Bm25Index(
+    chunks.map((c) => ({ id: c.id, text: c.text })),
+  );
+  const bm25Raw = bm25.score(query);
+  const bm25Norm = normalizeScores(bm25Raw);
+  const vecMap = new Map(vectorHits.map((h) => [h.chunk.id, h.score]));
+
+  const fused = chunks
+    .map((chunk) => {
+      const v = vecMap.get(chunk.id) ?? 0;
+      const b = bm25Norm.get(chunk.id) ?? 0;
+      const score = HYBRID_VECTOR_WEIGHT * v + (1 - HYBRID_VECTOR_WEIGHT) * b;
+      return {
+        chunk,
+        score,
+        documentName: docs.get(chunk.docId) ?? "document",
+      };
+    })
+    .filter((h) => h.score > 0.08)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+
+  return fused;
+}
+
+async function vectorHitsInternal(
+  chunks: RagChunk[],
+  docs: Map<string, string>,
+  query: string,
+  k: number,
+): Promise<RagSearchHit[]> {
   const [queryVec] = await embedTexts([query]);
   if (!queryVec) return [];
-
-  const scored = chunks
+  return chunks
     .map((chunk) => ({
       chunk,
       score: cosineSimilarity(queryVec, chunk.embedding),
       documentName: docs.get(chunk.docId) ?? "document",
     }))
     .sort((a, b) => b.score - a.score)
-    .slice(0, k);
+    .slice(0, k)
+    .filter((h) => h.score > 0.12);
+}
 
-  return scored.filter((h) => h.score > 0.15);
+function bm25Hits(
+  chunks: RagChunk[],
+  docs: Map<string, string>,
+  query: string,
+  k: number,
+): RagSearchHit[] {
+  const bm25 = new Bm25Index(chunks.map((c) => ({ id: c.id, text: c.text })));
+  const scores = bm25.score(query);
+  return chunks
+    .map((chunk) => ({
+      chunk,
+      score: scores.get(chunk.id) ?? 0,
+      documentName: docs.get(chunk.docId) ?? "document",
+    }))
+    .filter((h) => h.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
 }
 
 /** Format retrieved chunks as prompt context with simple citations. */
@@ -124,7 +189,8 @@ export function formatRagContext(hits: RagSearchHit[]): string {
 export async function retrieveContext(
   roomId: string,
   query: string,
+  mode: RagSearchMode = "hybrid",
 ): Promise<string> {
-  const hits = await searchChunks(roomId, query);
+  const hits = await searchChunks(roomId, query, 4, mode);
   return formatRagContext(hits);
 }

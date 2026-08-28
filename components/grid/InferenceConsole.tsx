@@ -43,7 +43,8 @@ import {
   isVisionModel,
   listConsoleModels,
 } from "@/lib/models/console-models";
-import { retrieveContext } from "@/lib/rag/store";
+import { retrieveContext, type RagSearchMode } from "@/lib/rag/store";
+import { runAgentLoop } from "@/lib/tools/agent-loop";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
 
@@ -57,6 +58,8 @@ export function InferenceConsole({
   registryVersion = 0,
   onManualModelChange,
   ragEnabled = false,
+  ragSearchMode = "hybrid",
+  toolsEnabled = false,
 }: {
   node: GridNode;
   snapshot: GridSnapshot;
@@ -65,6 +68,8 @@ export function InferenceConsole({
   registryVersion?: number;
   onManualModelChange?: () => void;
   ragEnabled?: boolean;
+  ragSearchMode?: RagSearchMode;
+  toolsEnabled?: boolean;
 }) {
   const gridModels = useMemo(
     () => listConsoleModels(),
@@ -233,27 +238,42 @@ export function InferenceConsole({
 
       const ragContext =
         ragEnabled && !isCustom
-          ? await retrieveContext(roomId, text)
+          ? await retrieveContext(roomId, text, ragSearchMode)
           : undefined;
       const messages = buildRunMessages(thread, text, {
         image: attachImage ?? undefined,
         ragContext,
       });
 
+      const sampler = {
+        temperature: thread.sampler.temperature,
+        topP: thread.sampler.topP,
+        topK: thread.sampler.topK,
+        maxTokens: thread.sampler.maxTokens,
+        seed: thread.sampler.seed,
+        stopSequences: thread.sampler.stopSequences,
+        repetitionPenalty: thread.sampler.repetitionPenalty,
+        jsonMode: thread.jsonMode,
+      };
+
       let jobId: string | null = null;
       if (isCustom) {
         jobId = null;
+      } else if (toolsEnabled && model) {
+        const result = await runAgentLoop(
+          node,
+          model.id,
+          messages,
+          sampler,
+          true,
+          {
+            roomId,
+            ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
+          },
+        );
+        jobId = result?.jobId ?? null;
       } else if (model && isShardedModel(model)) {
-        jobId = node.runPrompt(messages, {
-          temperature: thread.sampler.temperature,
-          topP: thread.sampler.topP,
-          topK: thread.sampler.topK,
-          maxTokens: thread.sampler.maxTokens,
-          seed: thread.sampler.seed,
-          stopSequences: thread.sampler.stopSequences,
-          repetitionPenalty: thread.sampler.repetitionPenalty,
-          jsonMode: thread.jsonMode,
-        });
+        jobId = node.runPrompt(messages, sampler);
       } else if (model) {
         jobId = node.submit(model.id, messages) || null;
       }
@@ -307,24 +327,31 @@ export function InferenceConsole({
     if (!thread) return;
     void (async () => {
       const ragContext =
-        ragEnabled ? await retrieveContext(roomId, userText) : undefined;
+        ragEnabled ? await retrieveContext(roomId, userText, ragSearchMode) : undefined;
       const messages = buildRunMessages(thread, userText, {
         image,
         ragContext,
       });
       const m = getModel(effectiveModelId);
+      const sampler = {
+        temperature: thread.sampler.temperature,
+        topP: thread.sampler.topP,
+        topK: thread.sampler.topK,
+        maxTokens: thread.sampler.maxTokens,
+        seed: thread.sampler.seed,
+        stopSequences: thread.sampler.stopSequences,
+        repetitionPenalty: thread.sampler.repetitionPenalty,
+        jsonMode: thread.jsonMode,
+      };
       let jobId: string | null = null;
-      if (m && isShardedModel(m)) {
-        jobId = node.runPrompt(messages, {
-          temperature: thread.sampler.temperature,
-          topP: thread.sampler.topP,
-          topK: thread.sampler.topK,
-          maxTokens: thread.sampler.maxTokens,
-          seed: thread.sampler.seed,
-          stopSequences: thread.sampler.stopSequences,
-          repetitionPenalty: thread.sampler.repetitionPenalty,
-          jsonMode: thread.jsonMode,
+      if (toolsEnabled && m) {
+        const result = await runAgentLoop(node, m.id, messages, sampler, true, {
+          roomId,
+          ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
         });
+        jobId = result?.jobId ?? null;
+      } else if (m && isShardedModel(m)) {
+        jobId = node.runPrompt(messages, sampler);
       } else if (m) {
         jobId = node.submit(m.id, messages) || null;
       }

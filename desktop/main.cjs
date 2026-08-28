@@ -1,25 +1,25 @@
 /**
  * TeamThink desktop shell — Chromium with WebGPU flags, loading the static
  * Next export from ../out (production) or the Next dev server (development).
+ * Includes a local OpenAI-compatible HTTP gateway on 127.0.0.1:11434.
  */
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
 
-// Browser WebGPU is limited / inconsistent; Electron can enable unsafe WebGPU.
 app.commandLine.appendSwitch("enable-unsafe-webgpu");
 app.commandLine.appendSwitch("enable-features", "Vulkan,UseSkiaRenderer");
 
 const isDev = !app.isPackaged;
 const DEV_URL = process.env.TEAMTHINK_DEV_URL || "http://127.0.0.1:3000";
+const GATEWAY_PORT = Number(process.env.TEAMTHINK_GATEWAY_PORT || 11434);
 
 function outDir() {
   if (isDev) return path.join(__dirname, "..", "out");
   return path.join(process.resourcesPath, "out");
 }
 
-/** Minimal static file server so SPA routes and workers resolve under http:// */
 function startStaticServer(root) {
   const mime = {
     ".html": "text/html; charset=utf-8",
@@ -47,7 +47,6 @@ function startStaticServer(root) {
     }
     fs.readFile(filePath, (err, data) => {
       if (err) {
-        // SPA / Next export fallback for client routes
         const fallback = path.join(root, "index.html");
         fs.readFile(fallback, (err2, html) => {
           if (err2) {
@@ -79,6 +78,89 @@ function startStaticServer(root) {
 
 let mainWindow = null;
 let staticServer = null;
+let gatewayServer = null;
+const pendingGateway = new Map();
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8");
+      if (!raw.trim()) return resolve(null);
+      try {
+        resolve(JSON.parse(raw));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function startGatewayServer() {
+  const server = http.createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const url = new URL(req.url || "/", "http://127.0.0.1");
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+
+    if (!mainWindow?.webContents) {
+      res.writeHead(503, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "TeamThink UI not ready" } }));
+      return;
+    }
+
+    const id = `gw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    try {
+      let body = null;
+      if (req.method === "POST") body = await readBody(req);
+
+      const result = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pendingGateway.delete(id);
+          reject(new Error("gateway timeout"));
+        }, 180_000);
+        pendingGateway.set(id, (status, payload) => {
+          clearTimeout(timer);
+          resolve({ status, payload });
+        });
+        mainWindow.webContents.send("gateway-request", id, req.method, pathname, body);
+      });
+
+      res.writeHead(result.status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result.payload));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: { message: err instanceof Error ? err.message : "gateway error" },
+        }),
+      );
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    server.listen(GATEWAY_PORT, "127.0.0.1", () => resolve(server));
+    server.on("error", reject);
+  });
+}
+
+ipcMain.on("gateway-response", (_event, id, status, body) => {
+  const cb = pendingGateway.get(id);
+  if (cb) {
+    pendingGateway.delete(id);
+    cb(status, body);
+  }
+});
 
 async function createWindow() {
   let startUrl = DEV_URL;
@@ -115,7 +197,13 @@ async function createWindow() {
   await mainWindow.loadURL(startUrl);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    gatewayServer = await startGatewayServer();
+    console.log(`TeamThink OpenAI gateway listening on http://127.0.0.1:${GATEWAY_PORT}/v1`);
+  } catch (err) {
+    console.error("Gateway failed to start:", err);
+  }
   void createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -124,5 +212,6 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (staticServer) staticServer.close();
+  if (gatewayServer) gatewayServer.close();
   if (process.platform !== "darwin") app.quit();
 });

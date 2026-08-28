@@ -1,5 +1,33 @@
 # TeamThink Desktop Releases
 
+## v0.6.0 — Hybrid RAG, agent tools, OpenAI gateway, headless compute
+
+Search modes for document retrieval, built-in agent tools, a local OpenAI-compatible API from the desktop app, headless compute tabs, and the `tt` CLI.
+
+### What’s new in 0.6.0
+
+#### 21. Hybrid BM25 + vector retrieval
+
+You want keyword matches and semantic similarity together. In **Documents**, enable **RAG on send** and pick **Hybrid**, **Vector only**, or **BM25 only** before sending a prompt.
+
+#### 23. Tool / function calling
+
+You need the model to look up docs or run simple helpers. Enable **Agent tools** in the sidebar — built-in `rag_search`, `calculator`, and `current_time` run through the mesh scheduler with up to four tool rounds per turn.
+
+#### 24. OpenAI-compatible local gateway
+
+You want Cursor or other OpenAI clients to hit your mesh. The desktop app listens on `http://127.0.0.1:11434/v1` for `/v1/models`, `/v1/chat/completions`, and `/v1/embeddings` while a session is open.
+
+#### 26. Headless compute mode
+
+You want a machine to donate GPU without the chat UI. Open `/s?r=<room>&headless=1` (or `mode=compute`) and keep the tab open — model load, telemetry, and peer list stay visible.
+
+#### 27. CLI (`tt`)
+
+You want terminal access to the gateway. Run `pnpm tt room`, `pnpm tt models`, `pnpm tt chat -m <model> "hello"`, or `pnpm tt embed -m <model> "text"` against a running desktop session.
+
+---
+
 ## v0.5.0 — Vision chat, embeddings, document RAG
 
 Multimodal prompts, on-device embeddings, and offline document retrieval for the mesh.

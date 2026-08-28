@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DocumentPanel } from "@/components/rag/DocumentPanel";
+import { ToolsPanel } from "@/components/tools/ToolsPanel";
+import { GatewayBridge } from "@/components/gateway/GatewayBridge";
 import { CapabilityPanel } from "@/components/grid/CapabilityPanel";
 import { InferenceConsole } from "@/components/grid/InferenceConsole";
 import { InviteBar } from "@/components/grid/InviteBar";
@@ -11,6 +13,7 @@ import { OnboardingTour } from "@/components/grid/OnboardingTour";
 import { PeerList } from "@/components/grid/PeerList";
 import { RecoveryBanner } from "@/components/grid/RecoveryBanner";
 import { TelemetryStrip } from "@/components/grid/TelemetryStrip";
+import type { RagSearchMode } from "@/lib/rag/store";
 import { useGridNode } from "@/lib/grid/useGridNode";
 
 export function SessionView({ roomId }: { roomId: string }) {
@@ -18,6 +21,8 @@ export function SessionView({ roomId }: { roomId: string }) {
   const [pickModelId, setPickModelId] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
   const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragSearchMode, setRagSearchMode] = useState<RagSearchMode>("hybrid");
+  const [toolsEnabled, setToolsEnabled] = useState(false);
 
   function selectModel(id: string, hfRepo: string) {
     setPickModelId(id);
@@ -27,6 +32,7 @@ export function SessionView({ roomId }: { roomId: string }) {
 
   return (
     <main className="flex-1">
+      <GatewayBridge node={node} />
       <OnboardingTour />
       <InviteBar roomId={roomId} connected={snapshot.connected} node={node} />
 
@@ -44,7 +50,10 @@ export function SessionView({ roomId }: { roomId: string }) {
             roomId={roomId}
             ragEnabled={ragEnabled}
             onRagEnabledChange={setRagEnabled}
+            ragSearchMode={ragSearchMode}
+            onRagSearchModeChange={setRagSearchMode}
           />
+          <ToolsPanel enabled={toolsEnabled} onEnabledChange={setToolsEnabled} />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>
@@ -58,6 +67,8 @@ export function SessionView({ roomId }: { roomId: string }) {
             registryVersion={registryVersion}
             onManualModelChange={() => setPickModelId(null)}
             ragEnabled={ragEnabled}
+            ragSearchMode={ragSearchMode}
+            toolsEnabled={toolsEnabled}
           />
         </div>
       </div>

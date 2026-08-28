@@ -1,6 +1,6 @@
 {
   "name": "teamthink",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -11,7 +11,8 @@
     "desktop:dev": "pnpm --dir desktop exec electron .",
     "desktop:pack": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop dist",
     "desktop:dir": "pnpm build && pnpm --dir desktop install && pnpm --dir desktop pack",
-    "ralph": "bash scripts/ralph.sh"
+    "ralph": "bash scripts/ralph.sh",
+    "tt": "node tools/tt/tt.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

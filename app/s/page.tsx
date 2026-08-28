@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { HeadlessComputeView } from "@/components/grid/HeadlessComputeView";
 import { SessionView } from "@/components/grid/SessionView";
 
 /**
@@ -10,10 +11,15 @@ import { SessionView } from "@/components/grid/SessionView";
  * than a dynamic path segment so the whole app ships as a static export — the
  * deployment serves one `/s` page and the room is read client-side from the
  * link. No server route is involved in joining a room.
+ *
+ * Append `headless=1` or `mode=compute` for an always-on compute node without chat UI.
  */
 function Session() {
   const params = useSearchParams();
   const roomId = params.get("r")?.trim() ?? "";
+  const headless =
+    params.get("headless") === "1" ||
+    params.get("mode") === "compute";
 
   if (!roomId) {
     return (
@@ -29,6 +35,10 @@ function Session() {
         </div>
       </main>
     );
+  }
+
+  if (headless) {
+    return <HeadlessComputeView roomId={roomId} />;
   }
 
   return <SessionView roomId={roomId} />;

@@ -7,16 +7,21 @@ import {
   deleteDocument,
   ingestText,
   listDocuments,
+  type RagSearchMode,
 } from "@/lib/rag/store";
 
 export function DocumentPanel({
   roomId,
   ragEnabled,
   onRagEnabledChange,
+  ragSearchMode,
+  onRagSearchModeChange,
 }: {
   roomId: string;
   ragEnabled: boolean;
   onRagEnabledChange: (v: boolean) => void;
+  ragSearchMode: RagSearchMode;
+  onRagSearchModeChange: (v: RagSearchMode) => void;
 }) {
   const [docs, setDocs] = useState(() => listDocuments(roomId));
   const [paste, setPaste] = useState("");
@@ -49,16 +54,32 @@ export function DocumentPanel({
 
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
+      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Documents</CardTitle>
-        <label className="flex items-center gap-2 text-xs text-ink-muted">
-          <input
-            type="checkbox"
-            checked={ragEnabled}
-            onChange={(e) => onRagEnabledChange(e.target.checked)}
-          />
-          RAG on send
-        </label>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-ink-muted">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={ragEnabled}
+              onChange={(e) => onRagEnabledChange(e.target.checked)}
+            />
+            RAG on send
+          </label>
+          {ragEnabled && (
+            <select
+              value={ragSearchMode}
+              onChange={(e) =>
+                onRagSearchModeChange(e.target.value as RagSearchMode)
+              }
+              className="h-7 rounded-lg border border-border bg-canvas px-2 text-xs text-ink outline-none focus:border-accent"
+              aria-label="RAG search mode"
+            >
+              <option value="hybrid">Hybrid (BM25 + vector)</option>
+              <option value="vector">Vector only</option>
+              <option value="bm25">BM25 only</option>
+            </select>
+          )}
+        </div>
       </CardHeader>
 
       <div className="space-y-3">
