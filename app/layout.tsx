@@ -3,7 +3,12 @@ import { Analytics } from "@vercel/analytics/next";
 import { bodySans, displaySerif, mono } from "./fonts";
 import "./globals.css";
 
+/** Production origin for absolute Open Graph / Twitter image URLs. */
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://teamthink.reagent-systems.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "TeamThink — Shared WebGPU Inference Grid",
   description:
     "Spin up a session, invite devices, and run model inference across a peer-to-peer WebGPU grid.",

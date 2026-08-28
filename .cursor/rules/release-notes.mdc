@@ -1,0 +1,56 @@
+---
+description: Format major/minor release notes as simplified technical English use-case scenarios
+globs:
+alwaysApply: false
+---
+
+# Release notes — feature use cases
+
+When preparing a **major** or **minor** release (semver `X.Y.0` or bumping `X.0.0` /
+`0.Y.0`), rewrite the “what’s new” feature list as **use-case scenarios** in
+**simplified technical English**. Do this for `RELEASE.md` and for the GitHub
+Release body.
+
+## Format
+
+For each shipped feature:
+
+```markdown
+#### N. Short feature name
+
+You <situation that is hard or missing today>. <What the feature does in plain
+terms>. <Optional one-line how-to or result>.
+```
+
+## Style rules
+
+- Second person (“You …”).
+- Short sentences. Common words. No marketing fluff.
+- Name the concrete capability (persist, export, sampler knobs, JSON mode, etc.).
+- One scenario per feature. Prefer 2–4 sentences.
+- Keep technical terms that users need (WebGPU, VRAM, JSON, markdown, Electron).
+
+## Example (good)
+
+```markdown
+#### 6. Electron desktop app with WebGPU flags + CI release
+
+You want to contribute more GPU capacity, but the browser limits WebGPU or
+VRAM. Download the Electron desktop app. It runs Chromium with WebGPU flags
+enabled and ships for Linux, macOS, and Windows through the `v*` release
+pipeline.
+```
+
+## Example (avoid)
+
+Long literary scenes, hype adjectives, or bare bullet lists with no “You …”
+scenario.
+
+## Checklist before tagging `vX.Y.Z`
+
+1. List user-visible features in the release.
+2. Rewrite each as a use-case block (above).
+3. Update `RELEASE.md` “What’s new” section.
+4. Use the same copy in the GitHub Release notes.
+5. If `public/og.png` / social art changed, follow
+   `.cursor/rules/og-social-preview.mdc` so X/Twitter cards stay correct.

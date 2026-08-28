@@ -150,3 +150,7 @@ via the Ralph loop (`.ralph/`, `pnpm ralph`).
 - Routing distributes whole requests across devices. Pooling VRAM to run a model
   larger than any single device (pipeline/tensor sharding) is experimental and
   latency-bound; it is intentionally deferred behind the engine interface.
+
+- For X/Twitter cards when sharing the **GitHub repo URL**, upload
+  `.github/social-preview.jpg` under **Settings → Social preview** (must be
+  under 1 MB). See `.cursor/rules/og-social-preview.mdc`.
