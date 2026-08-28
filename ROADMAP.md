@@ -58,10 +58,10 @@ Bring desktop local-LLM polish into the browser mesh.
 22. `[ ]` **MCP client** — connect Model Context Protocol servers from the session; expose tools to the active model.
 23. `[x]` **Tool / function calling** — OpenAI-style `tools` + parallel tool calls routed through the mesh scheduler.
 24. `[x]` **OpenAI-compatible local gateway** — `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/embeddings` served from a peer or Worker proxy.
-25. `[ ]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.
+25. `[x]` **Anthropic-compatible Messages API** — drop-in for Claude-shaped clients pointing at the mesh.
 26. `[x]` **Headless node / daemon mode** — “llmster for browsers”: keep a tab or Service Worker as always-on compute without full UI.
 27. `[x]` **CLI (`tt`)** — create rooms, list peers, pull models, chat, and start a local OpenAI server from the terminal.
-28. `[ ]` **TypeScript + Python SDKs** — script the mesh: load model, stream chat, submit pipeline jobs, manage rooms.
+28. `[x]` **TypeScript + Python SDKs** — script the mesh: load model, stream chat, submit pipeline jobs, manage rooms.
 
 ---
 

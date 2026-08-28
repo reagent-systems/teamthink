@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import {
+  handleAnthropicMessages,
   handleChatCompletion,
   handleEmbeddings,
   handleModelsList,
@@ -10,6 +11,7 @@ import type {
   ChatCompletionRequest,
   EmbeddingsRequest,
 } from "@/lib/gateway/openai-types";
+import type { MessagesRequest } from "@/lib/gateway/anthropic-types";
 import type { GridNode } from "@/lib/grid/scheduler";
 
 declare global {
@@ -50,6 +52,14 @@ export function GatewayBridge({ node }: { node: GridNode }) {
         }
         if (method === "POST" && path === "/v1/embeddings") {
           const res = await handleEmbeddings(body as EmbeddingsRequest);
+          gw.respond(id, 200, res);
+          return;
+        }
+        if (method === "POST" && path === "/v1/messages") {
+          const res = await handleAnthropicMessages(
+            node,
+            body as MessagesRequest,
+          );
           gw.respond(id, 200, res);
           return;
         }

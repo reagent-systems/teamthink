@@ -13,6 +13,11 @@ import type {
   EmbeddingsResponse,
 } from "@/lib/gateway/openai-types";
 import { listGatewayModels } from "@/lib/gateway/openai-types";
+import {
+  anthropicToChatMessages,
+  chatToAnthropicResponse,
+  type MessagesRequest,
+} from "@/lib/gateway/anthropic-types";
 
 const DEFAULT_SAMPLER = {
   temperature: 0.7,
@@ -85,4 +90,24 @@ export async function handleEmbeddings(
       embedding,
     })),
   };
+}
+
+export async function handleAnthropicMessages(
+  node: GridNode,
+  body: MessagesRequest,
+) {
+  const chatReq: ChatCompletionRequest = {
+    model: body.model,
+    messages: anthropicToChatMessages(body),
+    max_tokens: body.max_tokens,
+    temperature: body.temperature,
+  };
+  const chat = await handleChatCompletion(node, chatReq);
+  const text = chat.choices[0]?.message?.content ?? "";
+  return chatToAnthropicResponse(
+    body.model,
+    body.messages,
+    body.system,
+    text,
+  );
 }

@@ -1,5 +1,21 @@
 # TeamThink Desktop Releases
 
+## v0.7.0 — Anthropic Messages API + TypeScript/Python SDKs
+
+Claude-shaped clients and scriptable SDKs for the local gateway.
+
+### What’s new in 0.7.0
+
+#### 25. Anthropic-compatible Messages API
+
+You use Claude-style clients or libraries. The desktop gateway accepts `POST /v1/messages` and returns Anthropic-shaped responses while routing through the mesh.
+
+#### 28. TypeScript + Python SDKs
+
+You want to script chat and embeddings. Import `TeamThinkClient` from `lib/sdk/client.ts` (TypeScript) or `sdk/python/teamthink_client.py` (Python) — list models, chat, embed, and call the Messages API against `http://127.0.0.1:11434`.
+
+---
+
 ## v0.6.0 — Hybrid RAG, agent tools, OpenAI gateway, headless compute
 
 Search modes for document retrieval, built-in agent tools, a local OpenAI-compatible API from the desktop app, headless compute tabs, and the `tt` CLI.
