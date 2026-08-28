@@ -12,7 +12,11 @@ import type {
   EmbeddingsRequest,
 } from "@/lib/gateway/openai-types";
 import type { MessagesRequest } from "@/lib/gateway/anthropic-types";
+import type { ChatMessage } from "@/lib/engine/types";
 import { validateGatewayKey } from "@/lib/platform/client";
+import { handleMcpRequest } from "@/lib/mcp/server";
+import { listGatewayModels } from "@/lib/gateway/openai-types";
+import { dispatchPrompt, waitForJobText } from "@/lib/grid/prompt-dispatch";
 import type { GridNode } from "@/lib/grid/scheduler";
 
 declare global {
@@ -74,6 +78,29 @@ export function GatewayBridge({ node }: { node: GridNode }) {
             body as MessagesRequest,
           );
           gw.respond(id, 200, res);
+          return;
+        }
+        if (method === "POST" && path === "/mcp") {
+          const result = await handleMcpRequest(body as { id?: number; method?: string; params?: Record<string, unknown> }, {
+            listModels: () => listGatewayModels().map((m) => m.id),
+            chat: async (model, messages) => {
+              const jobId = dispatchPrompt(node, model, messages as ChatMessage[], {
+                temperature: 0.7,
+                topP: 0.95,
+                topK: 40,
+                maxTokens: 512,
+                seed: null,
+                stopSequences: [],
+                repetitionPenalty: 1.1,
+                jsonMode: false,
+              });
+              if (!jobId) throw new Error("model unavailable");
+              return waitForJobText(node, jobId);
+            },
+            embed: async () => [],
+            roomPeers: () => node.getSnapshot().peers.length,
+          });
+          gw.respond(id, 200, result);
           return;
         }
         gw.respond(id, 404, { error: { message: "not found" } });

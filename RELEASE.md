@@ -1,6 +1,90 @@
 # TeamThink Desktop Releases
 
-## v0.13.0 — Phase 4: mesh topology, routing, encryption, health
+## v0.15.0 — Phase 6: enterprise, PWA, self-host
+
+Hardening and packaging for orgs and offline deployments.
+
+### What's new in 0.15.0
+
+#### 89–90. Self-host & air-gapped
+
+- **Docker Compose** — `deploy/docker-compose.yml` (static nginx + Worker)
+- **Helm chart** — `deploy/helm/` for Kubernetes
+- **Air-gapped mode** — `lib/config/airgap.ts` local model mirror settings
+
+#### 91–93. Enterprise identity & compliance
+
+- **SSO stub** — `POST /auth/sso` on Platform DO
+- **SCIM** — `GET /scim/users` user list
+- **Compliance export** — `GET /compliance/export` audit bundle
+- **Billing meter** — `POST /billing/meter` for Stripe-style usage
+
+#### 94. Mobile PWA
+
+Installable web app via `manifest.webmanifest` and `sw.js` service worker.
+
+#### 96–97, 100. SLA, security, changelog
+
+- **Status page** — `/status` signaling health
+- **SBOM CI** — `.github/workflows/sbom.yml`
+- **Threat model** — `docs/THREAT_MODEL.md`
+- **CHANGELOG.md** — semver for app, Worker, SDK, gateway
+
+#### 98–99. i18n & accessibility
+
+- **i18n** — en/es/de/ja on home page; `lib/i18n/messages.ts`
+- **WCAG** — language selector, manifest, existing keyboard chat paths
+
+---
+
+## v0.14.0 — Phase 5: developer platform & integrations
+
+Make TeamThink a backend other apps build on.
+
+### What's new in 0.14.0
+
+#### 77. OpenAPI + MCP server export
+
+- **`/openapi.yaml`** and **`/openapi.json`** on Worker
+- **`POST /mcp`** JSON-RPC — mesh tools for Cursor / Claude Desktop
+- Desktop gateway **`/mcp`** route via `GatewayBridge`
+- **MCP export panel** in session sidebar
+
+#### 78–79. Webhooks & no-code connectors
+
+- Webhook CRUD on Platform DO; dispatch `job.completed`, `peer.joined`, `crawl.finished`
+- **Integrations panel** — webhook URLs, embed iframe snippet
+- **`integrations/zapier`**, **`integrations/n8n`** templates
+
+#### 80–82. IDE, chat bots, extension stubs
+
+- **`integrations/vscode/`** extension manifest
+- **`integrations/slack/`** and **`integrations/discord/`** bot scripts
+- **`integrations/extension/`** browser extension manifest
+
+#### 83. Embed SDK
+
+- **`lib/sdk/embed.ts`** — iframe URL builder and postMessage bridge
+
+#### 84, 88. Evaluation & datasets
+
+- **Eval panel** — smoke suite against live mesh
+- **Dataset sharing** — golden prompts per room, JSON export
+
+#### 85. Observability
+
+- **`/metrics`** Prometheus endpoint on Worker
+- OTEL-style spans in `lib/observability/otel.ts`
+- Observability panel in session
+
+#### 86–87. Marketplace & adapters
+
+- Plugin marketplace (themes, tools, RAG connectors)
+- LoRA adapter hub publish/list
+
+---
+
+## v0.13.0 — Phase 4: mesh topology, routing & encryption
 
 Distributed inference swarm improvements.
 

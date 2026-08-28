@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "TeamThink",
+  "version": "0.14.0",
+  "description": "Highlight page → ask your mesh; donate idle tab compute (ROADMAP #82)",
+  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_title": "Ask TeamThink"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

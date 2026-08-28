@@ -33,9 +33,18 @@ export default function RootLayout({
       lang="en"
       className={`${bodySans.variable} ${displaySerif.variable} ${mono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#6366f1" />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Analytics />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,
+          }}
+        />
       </body>
     </html>
   );

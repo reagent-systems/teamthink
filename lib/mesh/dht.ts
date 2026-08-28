@@ -19,8 +19,9 @@ export async function discoverSwarms(): Promise<SwarmEntry[]> {
 
 export function pickSwarmForModel(
   swarms: SwarmEntry[],
-  _modelId: string,
+  modelId?: string,
 ): SwarmEntry | null {
   if (!swarms.length) return null;
+  void modelId;
   return [...swarms].sort((a, b) => b.peers - a.peers)[0] ?? null;
 }

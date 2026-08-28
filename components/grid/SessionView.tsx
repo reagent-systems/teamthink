@@ -21,6 +21,11 @@ import { SignInPanel } from "@/components/auth/SignInPanel";
 import { ProfilePanel } from "@/components/platform/ProfilePanel";
 import { NotificationsPanel } from "@/components/platform/NotificationsPanel";
 import { HybridFallbackPanel } from "@/components/platform/HybridFallbackPanel";
+import { IntegrationsPanel } from "@/components/integrations/IntegrationsPanel";
+import { EvalPanel } from "@/components/eval/EvalPanel";
+import { MarketplacePanel } from "@/components/marketplace/MarketplacePanel";
+import { ObservabilityPanel } from "@/components/observability/ObservabilityPanel";
+import { McpExportPanel } from "@/components/mcp/McpExportPanel";
 import type { McpToolRoute } from "@/lib/mcp/client";
 import type { RagSearchMode } from "@/lib/rag/store";
 import type { ToolDefinition } from "@/lib/tools/types";
@@ -120,6 +125,21 @@ export function SessionView({ roomId }: { roomId: string }) {
           )}
           <ToolsPanel enabled={toolsEnabled} onEnabledChange={setToolsEnabled} />
           <KnowledgeBasePanel roomId={roomId} />
+          {(remoteConfig?.featureFlags.integrations ?? true) && (
+            <IntegrationsPanel roomId={roomId} />
+          )}
+          {(remoteConfig?.featureFlags.mcpExport ?? true) && (
+            <McpExportPanel roomId={roomId} />
+          )}
+          {(remoteConfig?.featureFlags.eval ?? true) && (
+            <EvalPanel roomId={roomId} node={node} />
+          )}
+          {(remoteConfig?.featureFlags.marketplace ?? true) && (
+            <MarketplacePanel />
+          )}
+          {(remoteConfig?.featureFlags.observability ?? true) && (
+            <ObservabilityPanel />
+          )}
           <CapabilityPanel snapshot={snapshot} />
           <DeviceRoutingPanel roomId={roomId} peers={snapshot.peers} />
           <PeerList peers={snapshot.peers} />

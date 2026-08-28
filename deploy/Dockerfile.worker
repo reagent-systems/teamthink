@@ -1,0 +1,7 @@
+FROM node:20-alpine
+WORKDIR /app
+COPY worker/package*.json worker/
+RUN cd worker && npm ci
+COPY worker/ worker/
+EXPOSE 8787
+CMD ["npx", "wrangler", "dev", "worker/src/index.ts", "--port", "8787", "--ip", "0.0.0.0"]

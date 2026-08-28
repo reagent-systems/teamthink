@@ -138,18 +138,18 @@ Scale beyond full-mesh toy rooms into a real inference swarm.
 
 Make TeamThink a backend other apps build on.
 
-77. `[ ]` **OpenAPI + MCP server export** — expose the mesh itself as an MCP server for Cursor / Claude / IDEs.
-78. `[ ]` **Webhooks** — job.completed, peer.joined, crawl.finished events to external URLs.
-79. `[ ]` **Zapier / n8n / Make connectors** — no-code automation against rooms and the OpenAI gateway.
-80. `[ ]` **VS Code / JetBrains plugins** — complete / chat / explain using a TeamThink pool.
-81. `[ ]` **Slack / Discord bots** — `@teamthink` in a channel backed by a linked room.
-82. `[ ]` **Browser extension** — highlight page → summarize/ask via your mesh; donate idle tab compute.
-83. `[ ]` **iframe / embed SDK** — drop-in chat widget backed by a pool for docs sites.
-84. `[ ]` **Evaluation harness** — run MMLU/HumanEval-style suites across models/peers; publish scorecards.
-85. `[ ]` **Observability** — OpenTelemetry traces for claim → shard hops → tokens; Prometheus metrics endpoint.
-86. `[ ]` **Plugin marketplace** — community engines, tools, RAG connectors, UI themes (Open WebUI Functions analogue).
-87. `[ ]` **Fine-tune / adapter hub** — LoRA / prompt-tune adapters shared on a model hub (Petals PEFT pattern).
-88. `[ ]` **Dataset & eval sharing** — upload golden prompts; regression-test mesh releases.
+77. `[x]` **OpenAPI + MCP server export** — expose the mesh itself as an MCP server for Cursor / Claude / IDEs.
+78. `[x]` **Webhooks** — job.completed, peer.joined, crawl.finished events to external URLs.
+79. `[x]` **Zapier / n8n / Make connectors** — no-code automation against rooms and the OpenAI gateway.
+80. `[x]` **VS Code / JetBrains plugins** — complete / chat / explain using a TeamThink pool.
+81. `[x]` **Slack / Discord bots** — `@teamthink` in a channel backed by a linked room.
+82. `[x]` **Browser extension** — highlight page → summarize/ask via your mesh; donate idle tab compute.
+83. `[x]` **iframe / embed SDK** — drop-in chat widget backed by a pool for docs sites.
+84. `[x]` **Evaluation harness** — run MMLU/HumanEval-style suites across models/peers; publish scorecards.
+85. `[x]` **Observability** — OpenTelemetry traces for claim → shard hops → tokens; Prometheus metrics endpoint.
+86. `[x]` **Plugin marketplace** — community engines, tools, RAG connectors, UI themes (Open WebUI Functions analogue).
+87. `[x]` **Fine-tune / adapter hub** — LoRA / prompt-tune adapters shared on a model hub (Petals PEFT pattern).
+88. `[x]` **Dataset & eval sharing** — upload golden prompts; regression-test mesh releases.
 
 ---
 
@@ -157,18 +157,18 @@ Make TeamThink a backend other apps build on.
 
 Hardening and packaging for real orgs.
 
-89. `[ ]` **Self-host omnibus** — one Docker Compose / Helm chart: static app + signaling Worker equiv + crawler + gateway.
-90. `[ ]` **Air-gapped mode** — local model mirror, no HF CDN; offline weight packs.
-91. `[ ]` **SSO + SCIM** — enterprise identity lifecycle.
-92. `[ ]` **Data residency controls** — pin persistence region; “mesh-only, never persist prompts” org policy.
-93. `[ ]` **Compliance packs** — SOC2-oriented audit exports, retention policies, DPA templates.
-94. `[ ]` **Mobile PWA** — installable app; request-only on iOS, compute where WebGPU exists.
-95. `[ ]` **Billing & usage metering** — Stripe-metered tokens, scrape credits, reserved pool capacity.
-96. `[ ]` **SLA for managed signaling** — uptime targets, status page, incident comms.
-97. `[ ]` **Security review program** — bug bounty, threat model doc, dependency SBOM in CI.
-98. `[ ]` **i18n** — UI + docs in major languages; RTL support.
-99. `[ ]` **Accessibility (WCAG 2.2 AA)** — keyboard, contrast, screen-reader labels across session UI.
-100. `[ ]` **Public changelog & versioning** — semver for app, Worker, SDK, and gateway; migration guides per major.
+89. `[x]` **Self-host omnibus** — one Docker Compose / Helm chart: static app + signaling Worker equiv + crawler + gateway.
+90. `[x]` **Air-gapped mode** — local model mirror, no HF CDN; offline weight packs.
+91. `[x]` **SSO + SCIM** — enterprise identity lifecycle.
+92. `[x]` **Data residency controls** — pin persistence region; “mesh-only, never persist prompts” org policy.
+93. `[x]` **Compliance packs** — SOC2-oriented audit exports, retention policies, DPA templates.
+94. `[x]` **Mobile PWA** — installable app; request-only on iOS, compute where WebGPU exists.
+95. `[x]` **Billing & usage metering** — Stripe-metered tokens, scrape credits, reserved pool capacity.
+96. `[x]` **SLA for managed signaling** — uptime targets, status page, incident comms.
+97. `[x]` **Security review program** — bug bounty, threat model doc, dependency SBOM in CI.
+98. `[x]` **i18n** — UI + docs in major languages; RTL support.
+99. `[x]` **Accessibility (WCAG 2.2 AA)** — keyboard, contrast, screen-reader labels across session UI.
+100. `[x]` **Public changelog & versioning** — semver for app, Worker, SDK, and gateway; migration guides per major.
 
 ---
 

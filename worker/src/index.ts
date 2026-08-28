@@ -65,6 +65,10 @@ export default {
       "/quotas/",
       "/artifacts",
       "/triggers/",
+      "/webhooks",
+      "/billing/",
+      "/compliance/",
+      "/scim/",
     ];
     if (platformPaths.some((p) => url.pathname.startsWith(p) || url.pathname === p.replace(/\/$/, ""))) {
       const config = DEFAULT_REMOTE_CONFIG;
@@ -222,6 +226,64 @@ export default {
           502,
         );
       }
+    }
+
+    if (url.pathname === "/openapi.yaml" && request.method === "GET") {
+      const spec = await fetch(new URL("/openapi.yaml", request.url).origin + "/openapi.yaml").catch(() => null);
+      if (spec?.ok) {
+        return new Response(await spec.text(), {
+          headers: { "content-type": "text/yaml", ...CORS },
+        });
+      }
+      return new Response("openapi: 3.1.0\ninfo:\n  title: TeamThink\n  version: 0.14.0\n", {
+        headers: { "content-type": "text/yaml", ...CORS },
+      });
+    }
+
+    if (url.pathname === "/openapi.json" && request.method === "GET") {
+      return json({
+        openapi: "3.1.0",
+        info: { title: "TeamThink Gateway API", version: "0.14.0" },
+        paths: {
+          "/v1/models": { get: { summary: "List models" } },
+          "/v1/chat/completions": { post: { summary: "Chat completion" } },
+          "/v1/embeddings": { post: { summary: "Embeddings" } },
+          "/v1/messages": { post: { summary: "Anthropic messages" } },
+          "/mcp": { post: { summary: "MCP server export" } },
+        },
+      });
+    }
+
+    if (url.pathname === "/mcp" && request.method === "POST") {
+      const { handleWorkerMcp } = await import("./mcp-route");
+      const body = (await request.json()) as {
+        id?: number | string;
+        method?: string;
+        params?: Record<string, unknown>;
+      };
+      const res = handleWorkerMcp(body);
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { "content-type": "application/json", ...CORS },
+      });
+    }
+
+    if (url.pathname === "/metrics" && request.method === "GET") {
+      const id = env.REGISTRY.idFromName("global");
+      const poolsRes = await env.REGISTRY.get(id).fetch("https://do/list");
+      const pools = (await poolsRes.json()) as { pools?: { peers: number }[] };
+      const totalPeers = (pools.pools ?? []).reduce((s, p) => s + p.peers, 0);
+      const body = [
+        "# TYPE teamthink_pools gauge",
+        `teamthink_pools ${(pools.pools ?? []).length}`,
+        "# TYPE teamthink_peers gauge",
+        `teamthink_peers ${totalPeers}`,
+        "# TYPE teamthink_worker_up gauge",
+        "teamthink_worker_up 1",
+      ].join("\n") + "\n";
+      return new Response(body, {
+        headers: { "content-type": "text/plain; version=0.0.4", ...CORS },
+      });
     }
 
     if (url.pathname === "/turn/credentials" && request.method === "GET") {

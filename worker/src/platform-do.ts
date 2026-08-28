@@ -35,6 +35,7 @@ const AUDIT_PREFIX = "audit:";
 const NOTIFY_PREFIX = "notify:";
 const QUOTA_PREFIX = "quota:";
 const ARTIFACT_PREFIX = "artifact:";
+const WEBHOOK_PREFIX = "webhook:";
 const CONFIG_KEY = "remoteConfig";
 
 export interface PlatformAttach {
@@ -126,6 +127,30 @@ export class PlatformDO {
     }
     if (path === "/triggers/room-created" && request.method === "POST") {
       return this.triggerRoomCreated(request);
+    }
+    if (path === "/webhooks" && request.method === "GET") {
+      return this.listWebhooks(request);
+    }
+    if (path === "/webhooks" && request.method === "POST") {
+      return this.createWebhook(request);
+    }
+    if (path.startsWith("/webhooks/") && request.method === "DELETE") {
+      return this.deleteWebhook(path.split("/")[2] ?? "", request);
+    }
+    if (path === "/webhooks/dispatch" && request.method === "POST") {
+      return this.dispatchWebhooks(request);
+    }
+    if (path === "/auth/sso" && request.method === "POST") {
+      return this.authSso(request);
+    }
+    if (path === "/scim/users" && request.method === "GET") {
+      return this.scimListUsers(request);
+    }
+    if (path === "/billing/meter" && request.method === "POST") {
+      return this.billingMeter(request);
+    }
+    if (path === "/compliance/export" && request.method === "GET") {
+      return this.complianceExport(request);
     }
 
     return new Response("not found", { status: 404 });
@@ -527,6 +552,160 @@ export class PlatformDO {
       );
       await this.audit(body.userId, "trigger.room_created", body.roomId ?? "");
     }
+    await this.fireWebhooks("room.created", { roomId: body.roomId ?? "" });
     return Response.json({ ok: true });
+  }
+
+  private async listWebhooks(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const map = await this.state.storage.list({ prefix: WEBHOOK_PREFIX });
+    const webhooks = [...map.values()].filter(
+      (w: { userId?: string }) => w.userId === userOrErr.id,
+    );
+    return Response.json({ webhooks });
+  }
+
+  private async createWebhook(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const body = (await request.json()) as {
+      url?: string;
+      events?: string[];
+      roomId?: string;
+    };
+    if (!body.url?.startsWith("http")) {
+      return Response.json({ error: "valid url required" }, { status: 400 });
+    }
+    const webhook = {
+      id: newId("whk"),
+      userId: userOrErr.id,
+      url: body.url,
+      events: body.events ?? ["job.completed"],
+      secret: newId("whs"),
+      roomId: body.roomId,
+      createdAt: Date.now(),
+    };
+    await this.state.storage.put(WEBHOOK_PREFIX + webhook.id, webhook);
+    await this.audit(userOrErr.id, "webhook.create", webhook.id);
+    return Response.json({ webhook });
+  }
+
+  private async deleteWebhook(id: string, request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const wh = await this.state.storage.get<{ userId?: string }>(WEBHOOK_PREFIX + id);
+    if (!wh || wh.userId !== userOrErr.id) {
+      return new Response("not found", { status: 404 });
+    }
+    await this.state.storage.delete(WEBHOOK_PREFIX + id);
+    return Response.json({ ok: true });
+  }
+
+  private async dispatchWebhooks(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const body = (await request.json()) as {
+      event?: string;
+      payload?: Record<string, unknown>;
+    };
+    const event = body.event ?? "job.completed";
+    await this.fireWebhooks(event, body.payload ?? {}, userOrErr.id);
+    return Response.json({ ok: true });
+  }
+
+  private async fireWebhooks(
+    event: string,
+    payload: Record<string, unknown>,
+    userId?: string,
+  ): Promise<void> {
+    const map = await this.state.storage.list<{
+      url: string;
+      events: string[];
+      userId?: string;
+      secret?: string;
+    }>({ prefix: WEBHOOK_PREFIX });
+    for (const [, wh] of map) {
+      if (userId && wh.userId !== userId) continue;
+      if (!wh.events.includes(event)) continue;
+      try {
+        await fetch(wh.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-TeamThink-Secret": wh.secret ?? "" },
+          body: JSON.stringify({ event, payload, at: Date.now() }),
+        });
+      } catch {
+        // best-effort delivery
+      }
+    }
+  }
+
+  private async authSso(request: Request): Promise<Response> {
+    const body = (await request.json()) as {
+      provider?: string;
+      idToken?: string;
+      email?: string;
+    };
+    if (!body.idToken) {
+      return Response.json({ error: "idToken required" }, { status: 400 });
+    }
+    const email = body.email?.trim().toLowerCase() ?? `sso@${body.provider ?? "idp"}.local`;
+    const user: AuthUser = {
+      id: newId("usr"),
+      email,
+      displayName: email.split("@")[0] ?? "SSO User",
+      provider: "magic",
+      createdAt: Date.now(),
+    };
+    await this.state.storage.put(USER_PREFIX + user.id, user);
+    const token = await signToken(user.id, this.secret());
+    await this.audit(user.id, "auth.sso", user.id, { provider: body.provider });
+    return Response.json({ token, user });
+  }
+
+  private async scimListUsers(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const map = await this.state.storage.list<AuthUser>({ prefix: USER_PREFIX });
+    const resources = [...map.values()].map((u) => ({
+      id: u.id,
+      userName: u.email ?? u.id,
+      displayName: u.displayName,
+      active: true,
+    }));
+    return Response.json({
+      Resources: resources,
+      totalResults: resources.length,
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+    });
+  }
+
+  private async billingMeter(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const body = (await request.json()) as { tokens?: number; scrapes?: number };
+    const usage = await this.getOrInitQuota(userOrErr.id);
+    usage.tokens += body.tokens ?? 0;
+    usage.scrapes += body.scrapes ?? 0;
+    await this.state.storage.put(QUOTA_PREFIX + userOrErr.id, usage);
+    return Response.json({
+      metered: true,
+      usage,
+      stripeEvent: `tokens:${body.tokens ?? 0}`,
+    });
+  }
+
+  private async complianceExport(request: Request): Promise<Response> {
+    const userOrErr = await this.requireUser(request);
+    if (userOrErr instanceof Response) return userOrErr;
+    const audit = await this.state.storage.list<AuditEntry>({ prefix: AUDIT_PREFIX });
+    const entries = [...audit.values()].sort((a, b) => b.at - a.at).slice(0, 500);
+    return Response.json({
+      exportedAt: Date.now(),
+      actorId: userOrErr.id,
+      auditLog: entries,
+      retentionPolicy: { days: 90 },
+      dataResidency: "us-default",
+    });
   }
 }

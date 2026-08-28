@@ -1,0 +1,30 @@
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ../out:/usr/share/nginx/html:ro
+    depends_on:
+      - worker
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    ports:
+      - "8787:8787"
+    environment:
+      - AUTH_SECRET=${AUTH_SECRET:-change-me}
+      - TURN_URL=${TURN_URL:-}
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.desktop
+    network_mode: host
+    profiles:
+      - desktop
+
+# Self-host omnibus (ROADMAP #89): static app + signaling Worker + optional desktop gateway.
+# Usage: pnpm build && docker compose -f deploy/docker-compose.yml up

@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PoolList } from "@/components/grid/PoolList";
 import { generateRoomId } from "@/lib/id";
+import { getLocale, setLocale, t, type Locale } from "@/lib/i18n/messages";
 
 export default function Home() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [joinValue, setJoinValue] = useState("");
+  const [locale, setLocaleState] = useState<Locale>(() => getLocale());
 
   function createSession() {
     setCreating(true);
@@ -32,13 +34,29 @@ export default function Home() {
             WebGPU inference grid
           </Badge>
           <h1 className="mt-6 font-display text-5xl leading-tight text-ink sm:text-6xl">
-            TeamThink
+            {t("app.title", locale)}
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-muted">
-            Start a session, invite devices with a link, and run model inference
-            across a peer-to-peer mesh. Each device that joins becomes a compute
-            node; requests are routed to whoever has the GPU to spare.
+            {t("app.tagline", locale)}
           </p>
+          <label className="mt-4 inline-flex items-center gap-2 text-sm text-ink-muted">
+            Language
+            <select
+              value={locale}
+              onChange={(e) => {
+                const l = e.target.value as Locale;
+                setLocale(l);
+                setLocaleState(l);
+              }}
+              className="rounded-lg border border-border bg-canvas px-2 py-1"
+              aria-label="Language"
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
         </header>
 
         <section
@@ -109,12 +127,20 @@ export default function Home() {
         </section>
 
         <p className="mt-10 text-sm text-ink-muted">
+          <a href="/status/" className="text-accent-strong hover:underline">
+            Status
+          </a>
+          {" · "}
           <a href="/health/" className="text-accent-strong hover:underline">
             Swarm health
           </a>
           {" · "}
           <a href="/admin/" className="text-accent-strong hover:underline">
             Admin console
+          </a>
+          {" · "}
+          <a href="https://github.com/reagent-systems/teamthink/blob/main/CHANGELOG.md" className="text-accent-strong hover:underline">
+            Changelog
           </a>
           {" · "}
           Platform auth, Remote Config, and audit logs
