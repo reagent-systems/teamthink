@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DocumentPanel } from "@/components/rag/DocumentPanel";
 import { ToolsPanel } from "@/components/tools/ToolsPanel";
 import { McpPanel } from "@/components/mcp/McpPanel";
+import { WebToolsPanel } from "@/components/scrape/WebToolsPanel";
 import { GatewayBridge } from "@/components/gateway/GatewayBridge";
 import { CapabilityPanel } from "@/components/grid/CapabilityPanel";
 import { InferenceConsole } from "@/components/grid/InferenceConsole";
@@ -32,6 +33,8 @@ export function SessionView({ roomId }: { roomId: string }) {
     () => new Map(),
   );
   const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [webEnabled, setWebEnabled] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
 
   function selectModel(id: string, hfRepo: string) {
     setPickModelId(id);
@@ -72,6 +75,13 @@ export function SessionView({ roomId }: { roomId: string }) {
               setMcpRoutes(routes);
             }}
           />
+          <WebToolsPanel
+            roomId={roomId}
+            webEnabled={webEnabled}
+            onWebEnabledChange={setWebEnabled}
+            agentMode={agentMode}
+            onAgentModeChange={setAgentMode}
+          />
           <CapabilityPanel snapshot={snapshot} />
           <PeerList peers={snapshot.peers} />
         </div>
@@ -90,6 +100,8 @@ export function SessionView({ roomId }: { roomId: string }) {
             mcpEnabled={mcpEnabled}
             mcpTools={mcpTools}
             mcpRoutes={mcpRoutes}
+            webEnabled={webEnabled}
+            agentMode={agentMode}
             ttsEnabled={ttsEnabled}
             onTtsEnabledChange={setTtsEnabled}
           />

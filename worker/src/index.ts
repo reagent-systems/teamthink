@@ -27,6 +27,13 @@ const CORS: Record<string, string> = {
 const ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const PEER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json", ...CORS },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -51,6 +58,97 @@ export default {
       return new Response(await res.text(), {
         headers: { "content-type": "application/json", ...CORS },
       });
+    }
+
+    if (url.pathname === "/scrape" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchAndParse } = await import("./scrape");
+        const page = await fetchAndParse(body.url);
+        return json(page);
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "scrape failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/search" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { query?: string; limit?: number };
+        if (!body.query?.trim()) return json({ error: "query required" }, 400);
+        const { searchWeb } = await import("./scrape");
+        const results = await searchWeb(body.query, body.limit ?? 5);
+        return json({ results });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "search failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/crawl" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as {
+          url?: string;
+          maxDepth?: number;
+          maxPages?: number;
+        };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { crawlDomain } = await import("./scrape");
+        const pages = await crawlDomain(
+          body.url,
+          Math.min(body.maxDepth ?? 1, 3),
+          Math.min(body.maxPages ?? 10, 25),
+        );
+        return json({ pages });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "crawl failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/sitemap" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const { fetchAndParse } = await import("./scrape");
+        const page = await fetchAndParse(body.url);
+        return json({ url: page.url, links: page.links });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "sitemap failed" },
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === "/parse-pdf" && request.method === "POST") {
+      try {
+        const body = (await request.json()) as { url?: string };
+        if (!body.url) return json({ error: "url required" }, 400);
+        const target = new URL(body.url);
+        if (!["http:", "https:"].includes(target.protocol)) {
+          return json({ error: "invalid url" }, 400);
+        }
+        const res = await fetch(target.href, {
+          headers: { "User-Agent": "TeamThink-Scraper/0.9" },
+        });
+        if (!res.ok) return json({ error: `HTTP ${res.status}` }, 502);
+        const buf = new Uint8Array(await res.arrayBuffer());
+        const text = extractPdfText(buf);
+        return json({ url: target.href, markdown: text.slice(0, 48_000) });
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : "pdf parse failed" },
+          502,
+        );
+      }
     }
 
     return new Response("teamthink signaling", { headers: CORS });
@@ -228,4 +326,22 @@ export class RegistryDO {
     }
     return new Response("ok");
   }
+}
+
+/** Best-effort text extraction from PDF byte streams (no full PDF parser). */
+function extractPdfText(bytes: Uint8Array): string {
+  const raw = new TextDecoder("latin1").decode(bytes);
+  const chunks: string[] = [];
+  const paren = /\(([^)\\]{3,})\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = paren.exec(raw))) {
+    const t = m[1]!.replace(/\\n/g, "\n").replace(/\\r/g, "").trim();
+    if (t.length > 2 && /[a-zA-Z]/.test(t)) chunks.push(t);
+  }
+  const stream = raw.match(/stream[\s\S]*?endstream/g) ?? [];
+  for (const block of stream) {
+    const words = block.match(/[A-Za-z][A-Za-z0-9',.-]{2,}/g) ?? [];
+    if (words.length > 8) chunks.push(words.join(" "));
+  }
+  return [...new Set(chunks)].join("\n\n").replace(/\s+/g, " ").trim();
 }

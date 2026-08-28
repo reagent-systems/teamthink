@@ -49,6 +49,7 @@ import { speakText } from "@/lib/audio/record";
 import { retrieveContext, type RagSearchMode } from "@/lib/rag/store";
 import type { McpToolRoute } from "@/lib/mcp/client";
 import type { ToolDefinition } from "@/lib/tools/types";
+import { getCitations } from "@/lib/scrape/citations";
 import { runAgentLoop } from "@/lib/tools/agent-loop";
 import type { GridNode } from "@/lib/grid/scheduler";
 import type { GridSnapshot } from "@/lib/grid/types";
@@ -68,6 +69,8 @@ export function InferenceConsole({
   mcpEnabled = false,
   mcpTools = [],
   mcpRoutes,
+  webEnabled = false,
+  agentMode = false,
   ttsEnabled = false,
   onTtsEnabledChange,
 }: {
@@ -83,10 +86,13 @@ export function InferenceConsole({
   mcpEnabled?: boolean;
   mcpTools?: ToolDefinition[];
   mcpRoutes?: Map<string, McpToolRoute>;
+  webEnabled?: boolean;
+  agentMode?: boolean;
   ttsEnabled?: boolean;
   onTtsEnabledChange?: (v: boolean) => void;
 }) {
-  const agentToolsOn = toolsEnabled || mcpEnabled;
+  const agentToolsOn =
+    toolsEnabled || mcpEnabled || webEnabled || agentMode;
   const extraTools = mcpEnabled ? mcpTools : [];
   const gridModels = useMemo(
     () => listConsoleModels(),
@@ -117,6 +123,8 @@ export function InferenceConsole({
   const [presets, setPresets] = useState(() =>
     typeof window === "undefined" ? [] : listPresets(),
   );
+
+  const citations = getCitations(roomId);
 
   const isCustom = modelId === CUSTOM;
   const effectiveModelId =
@@ -318,6 +326,7 @@ export function InferenceConsole({
             mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
           },
           extraTools,
+          { webToolsEnabled: webEnabled, agentMode },
         );
         jobId = result?.jobId ?? null;
       } else if (model && isShardedModel(model)) {
@@ -397,7 +406,7 @@ export function InferenceConsole({
           roomId,
           ragSearch: (q) => retrieveContext(roomId, q, ragSearchMode),
           mcpRoutes: mcpEnabled ? mcpRoutes : undefined,
-        }, extraTools);
+        }, extraTools, { webToolsEnabled: webEnabled, agentMode });
         jobId = result?.jobId ?? null;
       } else if (m && isShardedModel(m)) {
         jobId = node.runPrompt(messages, sampler);
@@ -792,7 +801,11 @@ export function InferenceConsole({
                     </div>
                   ) : m.role === "assistant" ? (
                     display || streaming ? (
-                      <MarkdownMessage text={display} streaming={streaming} />
+                      <MarkdownMessage
+                        text={display}
+                        streaming={streaming}
+                        citations={citations}
+                      />
                     ) : (
                       <span className="animate-pulse-soft text-sm text-ink-subtle">
                         waiting for tokens…

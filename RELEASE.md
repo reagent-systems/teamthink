@@ -1,5 +1,29 @@
 # TeamThink Desktop Releases
 
+## v0.9.0 — Web scrape, crawl, search, agent mode (Phase 2 start)
+
+Live-web context tools via the signaling Worker proxy, agent mode for multi-step research, and citation footnotes in chat.
+
+### What's new in 0.9.0
+
+#### 29–32, 35. Web scrape, crawl, sitemap, search, PDF parse
+
+You need page content without CORS headaches. Enable **Web tools** in the session sidebar — the Worker fetches URLs and returns Markdown. Agent tools: `web_scrape`, `web_crawl`, `web_sitemap`, `web_search`, and `parse_pdf`.
+
+#### 40. Agent mode
+
+You have a research goal, not a single question. Turn on **Agent mode** — the model runs up to eight tool rounds (search → scrape → answer) with `[1]`/`[2]` citation prompts.
+
+#### 42. Self-hosted crawler worker
+
+Scrape and crawl routes run on the same Cloudflare Worker as signaling (`/scrape`, `/crawl`, `/sitemap`, `/search`, `/parse-pdf`).
+
+#### 44. Citation UI
+
+Assistant messages render `[n]` as clickable footnotes; a source list appears below the reply with links to scraped URLs and PDFs.
+
+---
+
 ## v0.8.0 — WASM CPU models, audio I/O, MCP client (Phase 1 complete)
 
 Finishes Phase 1: GGUF-class WASM inference, Whisper STT + browser TTS, and MCP tool servers in the session.

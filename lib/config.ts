@@ -46,6 +46,11 @@ export const POOLS_URL = SIGNAL_WS_URL
   ? `${SIGNAL_WS_URL.replace(/^ws/, "http")}/pools`
   : "";
 
+/** Worker HTTP origin for scrape/crawl/search proxy routes. */
+export const WORKER_HTTP_URL = SIGNAL_WS_URL
+  ? SIGNAL_WS_URL.replace(/^ws/, "http")
+  : "";
+
 /** Client reconnect backoff bounds for the signaling socket (ms). */
 export const SIGNAL_RECONNECT_MIN_MS = 1000;
 export const SIGNAL_RECONNECT_MAX_MS = 15000;

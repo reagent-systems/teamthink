@@ -9,7 +9,13 @@ import {
   toolsSystemPrompt,
 } from "@/lib/tools/builtin";
 import type { ToolContext, ToolDefinition } from "@/lib/tools/types";
+import { AGENT_MODE_PROMPT, WEB_TOOLS } from "@/lib/tools/web";
 import { waitForJobText } from "@/lib/grid/prompt-dispatch";
+
+export interface AgentLoopOptions {
+  webToolsEnabled?: boolean;
+  agentMode?: boolean;
+}
 
 export interface AgentSampler {
   temperature: number;
@@ -28,7 +34,8 @@ export interface AgentRunResult {
   toolRounds: number;
 }
 
-const MAX_TOOL_ROUNDS = 4;
+const DEFAULT_MAX_ROUNDS = 4;
+const AGENT_MAX_ROUNDS = 8;
 
 function dispatchJob(
   node: GridNode,
@@ -53,12 +60,18 @@ export async function runAgentLoop(
   toolsEnabled: boolean,
   toolCtx: ToolContext,
   extraTools: ToolDefinition[] = [],
+  opts: AgentLoopOptions = {},
 ): Promise<AgentRunResult | null> {
-  const allTools = [...BUILTIN_TOOLS, ...extraTools];
+  const maxRounds =
+    opts.agentMode || opts.webToolsEnabled ? AGENT_MAX_ROUNDS : DEFAULT_MAX_ROUNDS;
+  const webTools = opts.webToolsEnabled ? WEB_TOOLS : [];
+  const allTools = [...BUILTIN_TOOLS, ...webTools, ...extraTools];
   let messages = [...baseMessages];
   if (toolsEnabled) {
     const systemIdx = messages.findIndex((m) => m.role === "system");
-    const toolsBlock = toolsSystemPrompt(allTools);
+    const parts = [toolsSystemPrompt(allTools)];
+    if (opts.agentMode) parts.unshift(AGENT_MODE_PROMPT);
+    const toolsBlock = parts.join("\n\n");
     if (systemIdx >= 0) {
       messages = messages.map((m, i) =>
         i === systemIdx
@@ -74,12 +87,12 @@ export async function runAgentLoop(
   let text = "";
   let toolRounds = 0;
 
-  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+  for (let round = 0; round <= maxRounds; round++) {
     jobId = dispatchJob(node, modelId, messages, sampler);
     if (!jobId) return null;
     text = await waitForJobText(node, jobId);
 
-    if (!toolsEnabled || round >= MAX_TOOL_ROUNDS) break;
+    if (!toolsEnabled || round >= maxRounds) break;
     const calls = parseToolCalls(text);
     if (!calls?.length) break;
 
@@ -93,7 +106,7 @@ export async function runAgentLoop(
       { role: "assistant", content: text },
       {
         role: "user",
-        content: `Tool results:\n${toolSummary}\n\nAnswer the user using these results.`,
+        content: `Tool results:\n${toolSummary}\n\nAnswer the user using these results. Cite sources as [1], [2], etc.`,
       },
     ];
   }
